@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROMISE-PSMA — Servicio de Medicina Nuclear</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <h1>PROMISE-PSMA</h1>
+  <div class="header-fields">
+    <label>
+      <span>ID del sujeto</span>
+      <input type="text" id="subjectId" placeholder="Ej: 12345">
+    </label>
+    <label>
+      <span>Fecha del PET</span>
+      <input type="date" id="peDate">
+    </label>
+    <label>
+      <span>Estadio previo al PET</span>
+      <select id="stageBeforePet">
+        <option value="">—</option>
+        <option value="initial">Estadificación inicial</option>
+        <option value="bcr">BCR (recurrencia bioquímica)</option>
+        <option value="nmcrpc">nmCRPC</option>
+        <option value="mhspc">mHSPC</option>
+        <option value="mcrpc">mCRPC</option>
+      </select>
+    </label>
+  </div>
+  <div class="header-actions">
+    <button id="btnGuardar" title="Guardar paciente">Guardar</button>
+    <button id="btnCargar" title="Cargar paciente">Cargar</button>
+    <button id="btnExportJson" title="Exportar JSON">Exportar JSON</button>
+    <button id="btnImportJson" title="Importar JSON">Importar JSON</button>
+    <button id="btnReset" title="Restablecer formulario actual">Restablecer</button>
+    <input type="file" id="jsonFileInput" accept="application/json" hidden>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- SECCIÓN 1: TUMOR LOCAL -->
+  <section class="card" id="section1">
+    <h2>Tumor local (T)</h2>
+    <label class="checkbox">
+      <input type="checkbox" id="prostateRemoved">
+      <span>La próstata fue removida</span>
+    </label>
+
+    <fieldset>
+      <legend>Categoría T</legend>
+      <label class="radio"><input type="radio" name="localT" value="t0"><span>Sin tumor local</span></label>
+      <label class="radio"><input type="radio" name="localT" value="T2u"><span>T2 unifocal</span></label>
+      <label class="radio"><input type="radio" name="localT" value="T2m"><span>T2 multifocal</span></label>
+      <label class="radio"><input type="radio" name="localT" value="T3a"><span>T3a — extensión extracapsular</span></label>
+      <label class="radio"><input type="radio" name="localT" value="T3b"><span>T3b — vesícula seminal</span></label>
+      <label class="radio"><input type="radio" name="localT" value="T4"><span>T4 — vejiga urinaria u órgano pélvico</span></label>
+      <label class="radio"><input type="radio" name="localT" value="Tr"><span>Recurrencia local post-prostatectomía</span></label>
+    </fieldset>
+
+    <label>
+      <span>Score PRIMARY</span>
+      <select id="primaryScore">
+        <option value="">—</option>
+        <option value="ftz">3 — Zona de transición focal</option>
+        <option value="fpz">4 — Zona periférica focal</option>
+        <option value="vhi">5 — Intensidad muy alta</option>
+      </select>
+    </label>
+  </section>
+
+  <!-- SECCIÓN 2: GANGLIOS LINFÁTICOS -->
+  <section class="card" id="section2">
+    <h2>Metástasis en ganglios linfáticos</h2>
+    <p class="section-sub">Ganglios pélvicos (N)</p>
+    <div class="checkbox-grid">
+      <label class="checkbox"><input type="checkbox" id="node_EIL"><span>Ilíaco externo izquierdo</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_EIR"><span>Ilíaco externo derecho</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_IIL"><span>Ilíaco interno izquierdo</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_IIR"><span>Ilíaco interno derecho</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_OBL"><span>Obturador izquierdo</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_OBR"><span>Obturador derecho</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_PS"><span>Presacro</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_OP"><span>Otros ganglios pélvicos</span></label>
+    </div>
+    <p class="section-sub">Ganglios extrapélvicos (M1a)</p>
+    <div class="checkbox-grid">
+      <label class="checkbox"><input type="checkbox" id="node_RP"><span>Retroperitoneal</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_CIL"><span>Ilíaco común izquierdo</span></label>
+      <label class="checkbox"><input type="checkbox" id="node_CIR"><span>Ilíaco común derecho</span></label>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 3: SCORE PSMA -->
+  <section class="card" id="section3">
+    <h2>Score de expresión PSMA</h2>
+    <p class="section-note">Sólo para lesiones de ≥1 cm de diámetro</p>
+    <label>
+      <span>Expresión baja</span>
+      <select id="scoreMin">
+        <option value="">—</option>
+        <option value="0">0</option>
+        <option value="1">1 — Sangre</option>
+        <option value="2">2 — Hígado / Bazo</option>
+        <option value="3">3 — Parótida</option>
+      </select>
+    </label>
+    <label>
+      <span>Expresión alta</span>
+      <select id="scoreMax">
+        <option value="">—</option>
+        <option value="0">0</option>
+        <option value="1">1 — Sangre</option>
+        <option value="2">2 — Hígado / Bazo</option>
+        <option value="3">3 — Parótida</option>
+      </select>
+    </label>
+  </section>
+
+  <!-- SECCIÓN 4: METÁSTASIS ÓSEAS -->
+  <section class="card" id="section4">
+    <h2>Metástasis óseas</h2>
+    <fieldset>
+      <legend>Compromiso óseo</legend>
+      <label class="radio"><input type="radio" name="bone" value="none"><span>Sin compromiso óseo</span></label>
+      <label class="radio"><input type="radio" name="bone" value="uni"><span>Lesión ósea única</span></label>
+      <label class="radio"><input type="radio" name="bone" value="oligo"><span>Oligometastásica (n≤3)</span></label>
+      <label class="radio"><input type="radio" name="bone" value="diss"><span>Diseminada (n&gt;3)</span></label>
+    </fieldset>
+    <label class="checkbox">
+      <input type="checkbox" id="diffuseMarrow">
+      <span>Compromiso difuso de médula ósea</span>
+    </label>
+  </section>
+
+  <!-- SECCIÓN 5: METÁSTASIS A DISTANCIA -->
+  <section class="card" id="section5">
+    <h2>Metástasis a distancia</h2>
+    <div class="checkbox-grid">
+      <label class="checkbox"><input type="checkbox" id="organ_hep"><span>Hígado</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_adr"><span>Glándula suprarrenal</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_brain"><span>Cerebro</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_lungLeft"><span>Pulmón izquierdo</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_lungRight"><span>Pulmón derecho</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_supradia"><span>Ganglio linfático supradiafragmático</span></label>
+      <label class="checkbox"><input type="checkbox" id="organ_OE"><span>Ganglio inguinal u otro extrapelviano</span></label>
+    </div>
+    <label class="checkbox">
+      <input type="checkbox" id="otherOrgansInvolved">
+      <span>Otros órganos involucrados</span>
+    </label>
+  </section>
+
+  <!-- SECCIÓN 6: ESQUEMA PROMISE -->
+  <section class="card card-wide" id="section6">
+    <h2>Esquema PROMISE</h2>
+    <p class="section-note">Se completa automáticamente con los hallazgos cargados arriba. Hacé clic sobre el esquema para agregar marcas manuales. Hacé clic sobre una marca manual para eliminarla.</p>
+    <div class="diagram-toolbar">
+      <button id="btnAddPinHint">+ Marca manual (clic en el esquema)</button>
+      <button id="btnClearPins">Borrar marcas manuales</button>
+      <button id="btnExportJpg">Exportar JPG</button>
+    </div>
+    <div class="diagram-wrap">
+      <svg id="promiseDiagram" viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <div class="footer-code">
+    <span class="footer-code-label">Código: </span>
+    <span id="promiseCode" class="footer-code-value"></span>
+  </div>
+  <button id="btnCopyCode" title="Copiar código">Copiar</button>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
