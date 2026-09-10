@@ -1603,22 +1603,22 @@ video {
 
 .bg-\[\#CFEAEE\] {
   --tw-bg-opacity: 1;
-  background-color: rgb(207 234 238 / var(--tw-bg-opacity));
+  background-color: rgb(247 227 238 / var(--tw-bg-opacity));
 }
 
 .bg-blue-100 {
   --tw-bg-opacity: 1;
-  background-color: rgb(219 234 254 / var(--tw-bg-opacity));
+  background-color: rgb(247 227 238 / var(--tw-bg-opacity));
 }
 
 .bg-blue-500 {
   --tw-bg-opacity: 1;
-  background-color: rgb(59 130 246 / var(--tw-bg-opacity));
+  background-color: rgb(158 31 99 / var(--tw-bg-opacity));
 }
 
 .bg-blue-light {
   --tw-bg-opacity: 1;
-  background-color: rgb(83 157 243 / var(--tw-bg-opacity));
+  background-color: rgb(158 31 99 / var(--tw-bg-opacity));
 }
 
 .bg-gray-100 {
@@ -1643,7 +1643,7 @@ video {
 
 .bg-green-light {
   --tw-bg-opacity: 1;
-  background-color: rgb(231 245 247 / var(--tw-bg-opacity));
+  background-color: rgb(252 240 246 / var(--tw-bg-opacity));
 }
 
 .bg-white {
@@ -1872,7 +1872,7 @@ video {
 
 .hover\:text-blue-light:hover {
   --tw-text-opacity: 1;
-  color: rgb(83 157 243 / var(--tw-text-opacity));
+  color: rgb(158 31 99 / var(--tw-text-opacity));
 }
 
 @media (min-width: 640px) {
@@ -2055,7 +2055,7 @@ video {
   text-align: left;
 }
 .psma-score-table th {
-  background: #CFEAEE;
+  background: #F7E3EE;
   font-weight: 600;
   font-size: .72rem;
 }
