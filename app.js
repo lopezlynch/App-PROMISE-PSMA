@@ -296,6 +296,11 @@
     return "T0";
   }
 
+  // Región base (sin lateralidad) usada por PROMISE V2 (Tabla 1) para
+  // decidir miN1 (una región) vs miN2 (dos o más regiones distintas).
+  const NODE_BASE_REGION = { EIL: "EI", EIR: "EI", IIL: "II", IIR: "II", OBL: "OB", OBR: "OB", PS: "PS", OP: "OP" };
+  const M1C_OFFICIAL = { hep: "hep", pul: "pul", adr: "adrenal", brain: "brain" };
+
   function buildPromiseCode() {
     const groups = activeRegionsBySection();
     const t = buildTCode(tumorMarkerRegions());
@@ -303,30 +308,36 @@
 
     const scoreSelect = document.getElementById("score");
     if (!scoreSelect.disabled && scoreSelect.value && scoreSelect.value !== "-1") {
-      code += " PRIMARY" + scoreSelect.value;
+      code += ` (PRIMARY${scoreSelect.value})`;
     }
 
-    code += groups.nodes.size ? ` N1(${groups.nodes.size}/${[...groups.nodes].join(",")})` : " N0";
+    if (groups.nodes.size) {
+      const baseTypes = new Set([...groups.nodes].map((r) => NODE_BASE_REGION[r] || r));
+      const nCategory = baseTypes.size >= 2 ? "N2" : "N1";
+      code += ` ${nCategory} (${[...groups.nodes].join(",")})`;
+    } else {
+      code += " N0";
+    }
 
     const mParts = [];
-    if (groups.metastases1a.size) mParts.push(`M1a(${[...groups.metastases1a].join(",")})`);
+    if (groups.metastases1a.size) mParts.push(`M1a (${[...groups.metastases1a].join(",")})`);
 
     const diffuse = document.getElementById("bone-removed") && document.getElementById("bone-removed").checked;
     const boneCount = boneMarkerCount();
     if (boneCount > 0 || diffuse) {
       const bits = [];
-      if (boneCount === 1) bits.push("única");
-      else if (boneCount >= 2 && boneCount <= 3) bits.push("oligometastásica");
-      else if (boneCount > 3) bits.push("diseminada");
-      if (diffuse) bits.push("médula ósea difusa");
-      mParts.push(`M1b(${bits.join("+")})`);
+      if (boneCount === 1) bits.push("uni");
+      else if (boneCount >= 2 && boneCount <= 3) bits.push("oligo");
+      else if (boneCount > 3) bits.push("diss");
+      if (diffuse) bits.push("dmi");
+      mParts.push(`M1b (${bits.join(",")})`);
     }
 
     const otherOrgans = document.getElementById("organs") && document.getElementById("organs").checked;
     if (groups.metastases1c.size || otherOrgans) {
-      const bits = [...groups.metastases1c];
-      if (otherOrgans) bits.push("otros");
-      mParts.push(`M1c(${bits.join(",")})`);
+      const bits = [...groups.metastases1c].map((r) => M1C_OFFICIAL[r] || r);
+      if (otherOrgans) bits.push("other");
+      mParts.push(`M1c (${bits.join(",")})`);
     }
 
     code += mParts.length ? " " + mParts.join(" ") : " M0";
@@ -335,7 +346,7 @@
     const maxDD = document.getElementById("max-range-dd");
     if (minDD && maxDD) {
       const min = minDD.value, max = maxDD.value;
-      if (min !== "-1" || max !== "4") code += ` PSMA-expr(min${min},max${max})`;
+      if (min !== "-1" || max !== "4") code += ` / PSMA expression score highest ${max} lowest ${min}`;
     }
     return code;
   }
