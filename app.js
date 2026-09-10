@@ -7,8 +7,7 @@
   const ES = {
     ePromise: "PROMISE-PSMA",
     buttons: {
-      close: "Cerrar", installApp: "Instalar como app!", nextSubject: "Siguiente Sujeto",
-      export: "Exportar tabla", exportJson: "Exportar JSON", importJson: "Importar JSON",
+      close: "Cerrar", installApp: "Instalar como app!",
       reset: "Restablecer", resetAll: "Restablecer todo"
     },
     header: {
@@ -56,8 +55,7 @@
       inputs: { otherOrgansInvolved: { label: "Otros órganos involucrados" } }
     },
     footer: { codeLabel: "Código: " },
-    toasts: { codeCopied: "Código copiado correctamente", exportSuccessfully: "La exportación fue exitosa", reseted: "Datos restablecidos correctamente", allReseted: "Todos los datos restablecidos correctamente" },
-    advanced: { import: { modal: { title: "Importar json", content: "Seleccione un archivo JSON para importar datos", loadData: "Cargar datos", selectJson: "Por favor seleccione un archivo JSON", noJson: "El archivo debe ser un JSON válido.", invalidJson: "El archivo no contiene JSON válido.", fileUploaded: "Archivo cargado exitosamente", uploadJsonLabel: "Archivo JSON", chooseFile: "Elegir archivo", noFileSelected: "Ningún archivo seleccionado" } } }
+    toasts: { codeCopied: "Código copiado correctamente", reseted: "Datos restablecidos correctamente", allReseted: "Todos los datos restablecidos correctamente" }
   };
 
   function resolveKey(key) {
@@ -371,42 +369,21 @@
       });
     }
 
-    document.querySelectorAll(".resetPatient, .resetAll, .new-patient, .btn-export-as-csv, .btn-export-as-json, .btn-import-json").forEach((el) => {
+    document.querySelectorAll(".resetPatient, .resetAll").forEach((el) => {
       el.addEventListener("click", (ev) => {
         if (el.tagName === "A") ev.preventDefault();
       });
     });
 
-    document.querySelectorAll(".resetPatient, .new-patient").forEach((el) => el.addEventListener("click", () => resetForm(false)));
+    document.querySelectorAll(".resetPatient").forEach((el) => el.addEventListener("click", () => resetForm(false)));
     document.querySelectorAll(".resetAll").forEach((el) => el.addEventListener("click", () => resetForm(true)));
-    document.querySelectorAll(".btn-export-as-json").forEach((el) => el.addEventListener("click", exportJson));
-    document.querySelectorAll(".btn-export-as-csv").forEach((el) => el.addEventListener("click", exportCsv));
-    document.querySelectorAll(".btn-import-json").forEach((el) => el.addEventListener("click", openImportModal));
 
     const modalClose = document.getElementById("modalClose");
     if (modalClose) modalClose.addEventListener("click", closeModal);
     const overlay = document.getElementById("overlay-modal");
     if (overlay) overlay.addEventListener("click", closeModal);
-
-    const jsonFileInput = document.getElementById("jsonFileInput");
-    const fileName = document.getElementById("fileName");
-    if (jsonFileInput) {
-      jsonFileInput.addEventListener("change", () => {
-        if (jsonFileInput.files[0] && fileName) fileName.textContent = jsonFileInput.files[0].name;
-      });
-    }
-    const loadJsonBtn = document.getElementById("loadJsonBtn");
-    if (loadJsonBtn) loadJsonBtn.addEventListener("click", importJsonFromInput);
   }
 
-  function openImportModal() {
-    document.getElementById("modalTitle").textContent = ES.advanced.import.modal.title;
-    document.getElementById("modalContent").textContent = ES.advanced.import.modal.content;
-    document.getElementById("import-section").style.display = "";
-    document.getElementById("modal").classList.add("active");
-    document.getElementById("overlay-modal").classList.remove("overlay-hidden");
-    document.getElementById("overlay-modal").classList.add("overlay-visible");
-  }
   function closeModal() {
     document.getElementById("modal").classList.remove("active");
     document.getElementById("overlay-modal").classList.remove("overlay-visible");
@@ -428,39 +405,7 @@
     toast._t = setTimeout(() => (toast.style.display = "none"), 2000);
   }
 
-  // ---------------------------------------------------------------
-  // Serialización del estado (para exportar/importar/restablecer)
-  // ---------------------------------------------------------------
-  function currentState() {
-    return {
-      subjectId: val("identifier"), peDate: val("PDEDate"), stageBeforePet: val("StageBPET"),
-      prostateRemoved: checked("prostate-removed"), primaryScore: val("score"),
-      selectedRegions: [...selectedElements],
-      lesionMarkers: serializeLesionMarkers(),
-      diffuseMarrow: checked("bone-removed"), otherOrgansInvolved: checked("organs"),
-      scoreMin: val("min-range-dd"), scoreMax: val("max-range-dd"),
-      code: document.getElementById("code") ? document.getElementById("code").textContent.trim() : ""
-    };
-  }
   function val(id) { const el = document.getElementById(id); return el ? el.value : ""; }
-  function checked(id) { const el = document.getElementById(id); return el ? el.checked : false; }
-
-  function applyState(state) {
-    if (!state) return;
-    setVal("identifier", state.subjectId); setVal("PDEDate", state.peDate); setVal("StageBPET", state.stageBeforePet);
-    setChecked("prostate-removed", state.prostateRemoved);
-    document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
-    setVal("score", state.primaryScore);
-    selectedElements.clear();
-    (state.selectedRegions || []).forEach((id) => selectedElements.add(id));
-    document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
-    restoreLesionMarkers(state.lesionMarkers);
-    setChecked("bone-removed", state.diffuseMarrow);
-    setChecked("organs", state.otherOrgansInvolved);
-    setVal("min-range-dd", state.scoreMin || "-1"); setVal("max-range-dd", state.scoreMax || "4");
-    document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
-    update();
-  }
   function setVal(id, v) { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; }
   function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
 
@@ -479,43 +424,6 @@
     if (all) { try { localStorage.removeItem("promisePsmaPatients"); } catch (e) {} }
     update();
     flashToast(all ? ES.toasts.allReseted : ES.toasts.reseted);
-  }
-
-  function exportJson() {
-    const state = currentState();
-    const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-    triggerDownload(URL.createObjectURL(blob), `promise_psma_${subject}.json`, true);
-    flashToast(ES.toasts.exportSuccessfully);
-  }
-
-  function exportCsv() {
-    const state = currentState();
-    const headers = ["Fecha", "Identificador del paciente", "Estadio previo al PET", "Código PROMISE"];
-    const row = [state.peDate, state.subjectId, state.stageBeforePet, state.code];
-    const csv = headers.join(";") + "\n" + row.map((v) => `"${(v || "").toString().replace(/"/g, '""')}"`).join(";");
-    const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
-    const blob = new Blob(["﻿" + csv], { type: "text/csv" });
-    triggerDownload(URL.createObjectURL(blob), `promise_psma_${subject}.csv`, true);
-    flashToast(ES.toasts.exportSuccessfully);
-  }
-
-  function importJsonFromInput() {
-    const input = document.getElementById("jsonFileInput");
-    const file = input.files[0];
-    if (!file) { alert(ES.advanced.import.modal.selectJson); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        applyState(data);
-        closeModal();
-        flashToast(ES.advanced.import.modal.fileUploaded);
-      } catch (e) {
-        alert(ES.advanced.import.modal.invalidJson);
-      }
-    };
-    reader.readAsText(file);
   }
 
   function triggerDownload(url, filename, revoke) {
