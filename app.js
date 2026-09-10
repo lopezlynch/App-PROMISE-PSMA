@@ -43,8 +43,8 @@
     section3: {
       title: "Score de expresión PSMA",
       inputs: {
-        scoreMin: { label: "Lower expresión", options: { zero: "0", blood: "1 Sangre", liverSpleen: "2 Hígado / Bazo", parotid: "3 Parótida" } },
-        scoreMax: { label: "Highest expresión", options: { blood: "1 Sangre", liverSpleen: "2 Hígado / Bazo", parotid: "3 Parótida" } }
+        scoreMin: { label: "Expresión más baja" },
+        scoreMax: { label: "Expresión más alta" }
       },
       note: "sólo para lesiones de ≥1 cm de diámetro"
     },
