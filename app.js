@@ -1,516 +1,561 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "promisePsmaPatients";
-  const SVG_NS = "http://www.w3.org/2000/svg";
-
-  // ---------- Anatomical marker layout (hotspots on the diagram) ----------
-  // group colors: t=local tumor, n=pelvic node, m1a=extrapelvic node, m1b=bone, m1c=organ
-  const MARKERS = [
-    { id: "T", group: "t", cx: 300, cy: 470, r: 14, label: "Próstata (T)" },
-
-    { id: "node_RP", group: "m1a", cx: 300, cy: 300, r: 8, label: "Retroperitoneal" },
-    { id: "node_CIL", group: "m1a", cx: 265, cy: 335, r: 8, label: "Ilíaco común izq." },
-    { id: "node_CIR", group: "m1a", cx: 335, cy: 335, r: 8, label: "Ilíaco común der." },
-
-    { id: "node_EIL", group: "n", cx: 250, cy: 380, r: 8, label: "Ilíaco externo izq." },
-    { id: "node_EIR", group: "n", cx: 350, cy: 380, r: 8, label: "Ilíaco externo der." },
-    { id: "node_IIL", group: "n", cx: 268, cy: 400, r: 8, label: "Ilíaco interno izq." },
-    { id: "node_IIR", group: "n", cx: 332, cy: 400, r: 8, label: "Ilíaco interno der." },
-    { id: "node_OBL", group: "n", cx: 280, cy: 425, r: 8, label: "Obturador izq." },
-    { id: "node_OBR", group: "n", cx: 320, cy: 425, r: 8, label: "Obturador der." },
-    { id: "node_PS", group: "n", cx: 300, cy: 415, r: 8, label: "Presacro" },
-    { id: "node_OP", group: "n", cx: 300, cy: 440, r: 8, label: "Otros pélvicos" },
-
-    { id: "organ_brain", group: "m1c", cx: 300, cy: 55, r: 12, label: "Cerebro" },
-    { id: "organ_lungLeft", group: "m1c", cx: 260, cy: 160, r: 11, label: "Pulmón izq." },
-    { id: "organ_lungRight", group: "m1c", cx: 340, cy: 160, r: 11, label: "Pulmón der." },
-    { id: "organ_hep", group: "m1c", cx: 335, cy: 225, r: 11, label: "Hígado" },
-    { id: "organ_adr", group: "m1c", cx: 300, cy: 215, r: 8, label: "Suprarrenal" },
-    { id: "organ_supradia", group: "m1a", cx: 300, cy: 120, r: 8, label: "Supradiafragmático" },
-    { id: "organ_OE", group: "m1a", cx: 300, cy: 500, r: 8, label: "Inguinal / otro extrapelviano" }
-  ];
-
-  const BONE_SITES = [
-    { id: "bone_skull", cx: 300, cy: 55 },
-    { id: "bone_spineC", cx: 300, cy: 100 },
-    { id: "bone_ribsL", cx: 265, cy: 175 },
-    { id: "bone_ribsR", cx: 335, cy: 175 },
-    { id: "bone_spineT", cx: 300, cy: 200 },
-    { id: "bone_spineL", cx: 300, cy: 280 },
-    { id: "bone_pelvis", cx: 300, cy: 350 },
-    { id: "bone_femurL", cx: 270, cy: 540 },
-    { id: "bone_femurR", cx: 330, cy: 540 }
-  ];
-
-  const BONE_COUNT = { none: 0, uni: 1, oligo: 3, diss: 9 };
-
-  const GROUP_COLOR = {
-    t: "#e11d48",
-    n: "#d97706",
-    m1a: "#b45309",
-    m1b: "#b91c1c",
-    m1c: "#7c3aed"
-  };
-  const INACTIVE_COLOR = "#cbd5e1";
-
-  // ---------------------------- State ----------------------------
-  function emptyState() {
-    return {
-      subjectId: "",
-      peDate: "",
-      stageBeforePet: "",
-      prostateRemoved: false,
-      localT: "",
-      primaryScore: "",
-      nodes: { EIL: false, EIR: false, IIL: false, IIR: false, OBL: false, OBR: false, PS: false, OP: false, RP: false, CIL: false, CIR: false },
-      scoreMin: "",
-      scoreMax: "",
-      bone: "none",
-      diffuseMarrow: false,
-      organs: { hep: false, adr: false, brain: false, lungLeft: false, lungRight: false, supradia: false, OE: false },
-      otherOrgansInvolved: false,
-      manualPins: [] // {x, y, text}
-    };
-  }
-
-  let state = emptyState();
-
-  // ---------------------------- DOM helpers ----------------------------
-  const $ = (id) => document.getElementById(id);
-
-  function bindCheckbox(id, getter, setter) {
-    const el = $(id);
-    el.checked = getter();
-    el.addEventListener("change", () => {
-      setter(el.checked);
-      update();
-    });
-  }
-
-  function bindSelect(id, getter, setter) {
-    const el = $(id);
-    el.value = getter();
-    el.addEventListener("change", () => {
-      setter(el.value);
-      update();
-    });
-  }
-
-  function bindRadioGroup(name, getter, setter) {
-    const radios = document.querySelectorAll(`input[name="${name}"]`);
-    radios.forEach((r) => {
-      r.checked = r.value === getter();
-      r.addEventListener("change", () => {
-        if (r.checked) {
-          setter(r.value);
-          update();
+  // ---------------------------------------------------------------
+  // Traducciones (idénticas a las que usa la app original, es.js)
+  // ---------------------------------------------------------------
+  const ES = {
+    ePromise: "PROMISE-PSMA",
+    buttons: {
+      close: "Cerrar", installApp: "Instalar como app!", nextSubject: "Siguiente Sujeto",
+      export: "Exportar tabla", exportJson: "Exportar JSON", importJson: "Importar JSON",
+      reset: "Restablecer", resetAll: "Restablecer todo"
+    },
+    header: {
+      inputs: {
+        subject: "ID del sujeto", peDate: "Fecha del PET",
+        stageBeforePet: {
+          label: "Estadio previo al PET",
+          options: { initial: "Estadificación inicial", bcr: "BCR (recurrencia bioquímica)", nmcrpc: "nmCRPC (no metastásico convencional)", mhspc: "mHSPC (metastásico convencional)", mcrpc: "mCRPC (metastásico convencional)" }
         }
+      }
+    },
+    shared: { option: { na: "n/a" } },
+    section1: {
+      title: "Tumor local",
+      svg: {
+        bladder: "vejiga urinaria", LSVTitle: "vesícula seminal izquierda", RSVTitle: "vesícula seminal derecha",
+        prostateOutside: "Próstata fuera", prostatePathTitle: "Próstata", prostateBorderTitle: "extensión extracapsular",
+        bladderTitleRemoved: "próstata removida"
+      },
+      inputs: {
+        prostateRemoved: { label: "La próstata fue removida" },
+        score: { label: "Score PRIMARY", options: { ftz: "3 - Zona de transición focal", fpz: "4 - Zona periférica focal", vhi: "5 - Intensidad muy alta" } }
+      }
+    },
+    section2: {
+      title: "Metástasis en ganglios linfáticos",
+      svg: {
+        EIRTitle: "ilíaco externo derecho", EILTitle: "ilíaco externo izquierdo", IILTitle: "ilíaco interno izquierdo", IIRTitle: "ilíaco interno derecho",
+        CILTitle: "ilíaco común izquierdo", CIRTitle: "ilíaco común derecho", RPTitle: "ganglio linfático retroperitoneal",
+        OBRTitle: "obturador derecho", OBLTitle: "obturador izquierdo", OPTitle: "otros ganglios linfáticos pélvicos", PSTitle: "presacro"
+      }
+    },
+    section3: {
+      title: "Score de expresión PSMA",
+      inputs: {
+        scoreMin: { label: "Expresión baja", options: { zero: "0", blood: "1 Sangre", liverSpleen: "2 Hígado / Bazo", parotid: "3 Parótida" } },
+        scoreMax: { label: "Expresión alta", options: { zero: "0", blood: "1 Sangre", liverSpleen: "2 Hígado / Bazo", parotid: "3 Parótida" } }
+      },
+      note: "sólo para lesiones de ≥1 cm de diámetro"
+    },
+    section4: { title: "Metástasis óseas", svg: { eskeletonTitle: "esqueleto" }, inputs: { diffuse: { label: "Compromiso difuso de médula ósea" } } },
+    section5: {
+      title: "Metástasis a distancia",
+      svg: { hepTitle: "hígado", adrTitle: "glándula suprarrenal", brainTitle: "cerebro", supradiaTitle: "ganglio linfático supradiafragmático", lungLeftTitle: "pulmón", lungRightTitle: "pulmón", OETitle: "ganglio linfático inguinal u otro extrapelviano" },
+      inputs: { otherOrgansInvolved: { label: "Otros órganos involucrados" } }
+    },
+    footer: { codeLabel: "Código: " },
+    toasts: { codeCopied: "Código copiado correctamente", exportSuccessfully: "La exportación fue exitosa", reseted: "Datos restablecidos correctamente", allReseted: "Todos los datos restablecidos correctamente" },
+    advanced: { import: { modal: { title: "Importar json", content: "Seleccione un archivo JSON para importar datos", loadData: "Cargar datos", selectJson: "Por favor seleccione un archivo JSON", noJson: "El archivo debe ser un JSON válido.", invalidJson: "El archivo no contiene JSON válido.", fileUploaded: "Archivo cargado exitosamente", uploadJsonLabel: "Archivo JSON", chooseFile: "Elegir archivo", noFileSelected: "Ningún archivo seleccionado" } } }
+  };
+
+  function resolveKey(key) {
+    return key.split(".").reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), ES);
+  }
+
+  function applyI18n(root) {
+    root.querySelectorAll("[data-i18n]").forEach((el) => {
+      const val = resolveKey(el.getAttribute("data-i18n"));
+      if (val !== undefined) el.textContent = val;
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Reflow responsivo (igual al de la app original)
+  // ---------------------------------------------------------------
+  function wireResponsiveReflow() {
+    const peDate = document.getElementById("pet-date");
+    const stageBpet = document.getElementById("stage-bpet");
+    const mainSection = document.getElementById("main-section");
+    const headerSection = document.getElementById("header-section");
+    if (!peDate || !stageBpet || !mainSection || !headerSection) return;
+    function moveElements() {
+      if (window.innerWidth < 1024) {
+        if (!mainSection.contains(peDate)) mainSection.appendChild(peDate);
+        if (!mainSection.contains(stageBpet)) mainSection.appendChild(stageBpet);
+      } else {
+        if (!headerSection.contains(peDate)) headerSection.appendChild(peDate);
+        if (!headerSection.contains(stageBpet)) headerSection.appendChild(stageBpet);
+      }
+    }
+    moveElements();
+    window.addEventListener("resize", moveElements);
+  }
+
+  // ---------------------------------------------------------------
+  // Estado de las regiones clicables de los diagramas (data-region)
+  // ---------------------------------------------------------------
+  const selectedElements = new Set(); // element ids
+  let boneState = 0; // 0 none, 1 uni, 2 oligo, 3 diss
+  const BONE_LABELS_ES = ["Sin compromiso óseo", "Lesión ósea única", "Oligometastásica (n≤3)", "Diseminada (n>3)"];
+  const BONE_OPACITY = [0, 0.55, 0.8, 1];
+
+  function refreshRegionVisual(el) {
+    const active = selectedElements.has(el.id);
+    el.setAttribute("opacity", active ? "1" : "0");
+  }
+
+  function wireClickableRegions() {
+    document.querySelectorAll(".clickable[data-region]").forEach((el) => {
+      if (el.getAttribute("data-region") === "skeleton") return; // manejado aparte (ciclo de estados)
+      el.style.cursor = "pointer";
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (selectedElements.has(el.id)) selectedElements.delete(el.id);
+        else selectedElements.add(el.id);
+        refreshRegionVisual(el);
+        update();
+      });
+    });
+
+    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
+    if (skeletonEl) {
+      skeletonEl.style.cursor = "pointer";
+      const badge = document.createElement("p");
+      badge.id = "bone-state-badge";
+      badge.style.cssText = "font-size:.75rem;color:#555;text-align:center;margin:2px 0;";
+      badge.textContent = BONE_LABELS_ES[0];
+      skeletonEl.closest("section").appendChild(badge);
+      skeletonEl.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        boneState = (boneState + 1) % 4;
+        skeletonEl.setAttribute("opacity", String(BONE_OPACITY[boneState]));
+        badge.textContent = BONE_LABELS_ES[boneState];
+        update();
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Notas manuales sobre los diagramas (clic fuera de una región)
+  // ---------------------------------------------------------------
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const DIAGRAM_IDS = ["prostate-svg-image", "prostate-removed-svg-image", "pelvic-svg-image", "bone-svg-image", "svg1"];
+
+  function addPin(svg, x, y, text) {
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "user-pin");
+    g.style.cursor = "pointer";
+    const vb = svg.viewBox.baseVal;
+    const r = vb && vb.width ? vb.width * 0.012 : 6;
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", r);
+    c.setAttribute("fill", "#0891b2"); c.setAttribute("stroke", "#164e63"); c.setAttribute("stroke-width", String(r * 0.2));
+    const t = document.createElementNS(SVG_NS, "title");
+    t.textContent = text;
+    g.appendChild(c); g.appendChild(t);
+    g.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (confirm(`¿Eliminar la nota "${text}"?`)) g.remove();
+    });
+    svg.appendChild(g);
+  }
+
+  function wireDiagramAnnotations() {
+    DIAGRAM_IDS.forEach((id) => {
+      const svg = document.getElementById(id);
+      if (!svg) return;
+      svg.addEventListener("click", (ev) => {
+        if (ev.target.closest(".clickable[data-region]") || ev.target.closest(".user-pin")) return;
+        const pt = svg.createSVGPoint();
+        pt.x = ev.clientX; pt.y = ev.clientY;
+        const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+        const text = prompt("Nota para este punto del esquema:");
+        if (text) addPin(svg, loc.x, loc.y, text);
       });
     });
   }
 
-  function bindText(id, getter, setter) {
-    const el = $(id);
-    el.value = getter();
-    el.addEventListener("input", () => {
-      setter(el.value);
+  function clearAnnotations() {
+    document.querySelectorAll(".user-pin").forEach((el) => el.remove());
+  }
+
+  // ---------------------------------------------------------------
+  // Sección 1: próstata removida / score PRIMARY
+  // ---------------------------------------------------------------
+  function wireProstateRemoved() {
+    const chk = document.getElementById("prostate-removed");
+    const normalSvg = document.getElementById("prostate-svg-image");
+    const removedSvg = document.getElementById("prostate-removed-svg-image");
+    const scoreSelect = document.getElementById("score");
+    if (!chk) return;
+    function refresh() {
+      const removed = chk.checked;
+      if (normalSvg) normalSvg.style.display = removed ? "none" : "";
+      if (removedSvg) removedSvg.style.display = removed ? "" : "none";
+      if (scoreSelect) scoreSelect.disabled = removed;
       update();
-    });
+    }
+    chk.addEventListener("change", refresh);
+    refresh();
   }
 
-  function wireForm() {
-    bindText("subjectId", () => state.subjectId, (v) => (state.subjectId = v));
-    bindText("peDate", () => state.peDate, (v) => (state.peDate = v));
-    bindSelect("stageBeforePet", () => state.stageBeforePet, (v) => (state.stageBeforePet = v));
+  // ---------------------------------------------------------------
+  // Sección 3: slider PSMA (doble rango) + selects para mobile
+  // ---------------------------------------------------------------
+  function wirePsmaSlider() {
+    const minRange = document.getElementById("min-range");
+    const maxRange = document.getElementById("max-range");
+    const minDD = document.getElementById("min-range-dd");
+    const maxDD = document.getElementById("max-range-dd");
+    const minValue = document.getElementById("min-value");
+    const maxValue = document.getElementById("max-value");
+    if (!minRange || !maxRange) return;
 
-    bindCheckbox("prostateRemoved", () => state.prostateRemoved, (v) => (state.prostateRemoved = v));
-    bindRadioGroup("localT", () => state.localT, (v) => (state.localT = v));
-    bindSelect("primaryScore", () => state.primaryScore, (v) => (state.primaryScore = v));
+    const LABELS = { "-1": "n/a", "0": "0", "1": "1", "2": "2", "3": "3", "4": "n/a" };
 
-    ["EIL", "EIR", "IIL", "IIR", "OBL", "OBR", "PS", "OP", "RP", "CIL", "CIR"].forEach((k) => {
-      bindCheckbox(`node_${k}`, () => state.nodes[k], (v) => (state.nodes[k] = v));
-    });
-
-    bindSelect("scoreMin", () => state.scoreMin, (v) => (state.scoreMin = v));
-    bindSelect("scoreMax", () => state.scoreMax, (v) => (state.scoreMax = v));
-
-    bindRadioGroup("bone", () => state.bone, (v) => (state.bone = v));
-    bindCheckbox("diffuseMarrow", () => state.diffuseMarrow, (v) => (state.diffuseMarrow = v));
-
-    ["hep", "adr", "brain", "lungLeft", "lungRight", "supradia", "OE"].forEach((k) => {
-      bindCheckbox(`organ_${k}`, () => state.organs[k], (v) => (state.organs[k] = v));
-    });
-    bindCheckbox("otherOrgansInvolved", () => state.otherOrgansInvolved, (v) => (state.otherOrgansInvolved = v));
+    function refresh() {
+      let min = parseInt(minRange.value, 10);
+      let max = parseInt(maxRange.value, 10);
+      if (min > max) { max = min; maxRange.value = String(max); }
+      if (minValue) minValue.textContent = LABELS[minRange.value];
+      if (maxValue) maxValue.textContent = LABELS[maxRange.value];
+      if (minDD) minDD.value = minRange.value;
+      if (maxDD) maxDD.value = maxRange.value;
+      update();
+    }
+    minRange.addEventListener("input", refresh);
+    maxRange.addEventListener("input", refresh);
+    if (minDD) minDD.addEventListener("change", () => { minRange.value = minDD.value; refresh(); });
+    if (maxDD) maxDD.addEventListener("change", () => { maxRange.value = maxDD.value; refresh(); });
+    refresh();
   }
 
-  function refreshFormFromState() {
-    $("subjectId").value = state.subjectId;
-    $("peDate").value = state.peDate;
-    $("stageBeforePet").value = state.stageBeforePet;
-    $("prostateRemoved").checked = state.prostateRemoved;
-    document.querySelectorAll('input[name="localT"]').forEach((r) => (r.checked = r.value === state.localT));
-    $("primaryScore").value = state.primaryScore;
-    ["EIL", "EIR", "IIL", "IIR", "OBL", "OBR", "PS", "OP", "RP", "CIL", "CIR"].forEach((k) => {
-      $(`node_${k}`).checked = state.nodes[k];
+  // ---------------------------------------------------------------
+  // Código PROMISE (formato "mi T.. N.. M..", igual al de la app real)
+  // ---------------------------------------------------------------
+  const T_ORDER = ["bladder", "LSV", "RSV", "prostateborderpath", "prostateborderpath0", "prostateoutside"];
+
+  function activeRegionsBySection() {
+    const groups = { tumor: new Set(), nodes: new Set(), metastases1a: new Set(), metastases1c: new Set() };
+    document.querySelectorAll(".clickable[data-region]").forEach((el) => {
+      if (!selectedElements.has(el.id)) return;
+      const section = el.getAttribute("data-section");
+      const region = el.getAttribute("data-region");
+      if (groups[section]) groups[section].add(region);
     });
-    $("scoreMin").value = state.scoreMin;
-    $("scoreMax").value = state.scoreMax;
-    document.querySelectorAll('input[name="bone"]').forEach((r) => (r.checked = r.value === state.bone));
-    $("diffuseMarrow").checked = state.diffuseMarrow;
-    ["hep", "adr", "brain", "lungLeft", "lungRight", "supradia", "OE"].forEach((k) => {
-      $(`organ_${k}`).checked = state.organs[k];
-    });
-    $("otherOrgansInvolved").checked = state.otherOrgansInvolved;
+    return groups;
   }
 
-  // ---------------------------- PROMISE code ----------------------------
-  const T_LABELS = { t0: "T0", T2u: "T2u", T2m: "T2m", T3a: "T3a", T3b: "T3b", T4: "T4" };
-  const PRIMARY_SCORE = { ftz: 3, fpz: 4, vhi: 5 };
-  const NODE_LABELS = { EIL: "EIL", EIR: "EIR", IIL: "IIL", IIR: "IIR", OBL: "OBL", OBR: "OBR", PS: "PS", OP: "OP" };
-  const M1A_NODE_LABELS = { RP: "RP", CIL: "CIL", CIR: "CIR" };
-  const ORGAN_LABELS = { hep: "hígado", adr: "suprarrenal", brain: "cerebro", lungLeft: "pulmón izq.", lungRight: "pulmón der." };
-  const BONE_LABELS = { uni: "única", oligo: "oligometastásica", diss: "diseminada" };
+  function buildTCode(tumor) {
+    const prostateRemoved = document.getElementById("prostate-removed").checked;
+    if (prostateRemoved) return "T0";
+    if (tumor.has("bladder")) return "T4";
+    if (tumor.has("LSV") || tumor.has("RSV")) return "T3b";
+    if (tumor.has("prostateborderpath")) return "T3a";
+    const foci = ["prostateborderpath0", "prostateoutside"].filter((k) => tumor.has(k)).length;
+    if (foci >= 2) return "T2m";
+    if (foci === 1) return "T2u";
+    return "T0";
+  }
 
   function buildPromiseCode() {
-    const parts = [];
+    const groups = activeRegionsBySection();
+    const t = buildTCode(groups.tumor);
+    let code = "mi " + t;
 
-    // --- T ---
-    if (state.prostateRemoved) {
-      parts.push(state.localT === "Tr" ? "miT_r+" : "miT0");
-    } else if (state.localT) {
-      let t = "mi" + (T_LABELS[state.localT] || state.localT);
-      if (state.primaryScore) t += ` PRIMARY${PRIMARY_SCORE[state.primaryScore]}`;
-      parts.push(t);
-    } else {
-      parts.push("miTx");
+    const scoreSelect = document.getElementById("score");
+    if (!scoreSelect.disabled && scoreSelect.value && scoreSelect.value !== "-1") {
+      code += " PRIMARY" + scoreSelect.value;
     }
 
-    // --- N (pelvic) ---
-    const nStations = Object.keys(NODE_LABELS).filter((k) => state.nodes[k]);
-    parts.push(nStations.length ? `miN1(${nStations.length}/${nStations.join(",")})` : "miN0");
+    code += groups.nodes.size ? ` N1(${groups.nodes.size}/${[...groups.nodes].join(",")})` : " N0";
 
-    // --- M ---
     const mParts = [];
-    const m1aStations = [
-      ...Object.keys(M1A_NODE_LABELS).filter((k) => state.nodes[k]),
-      ...(state.organs.supradia ? ["SD"] : []),
-      ...(state.organs.OE ? ["OE"] : [])
-    ];
-    if (m1aStations.length) mParts.push(`miM1a(${m1aStations.join(",")})`);
+    if (groups.metastases1a.size) mParts.push(`M1a(${[...groups.metastases1a].join(",")})`);
 
-    if (state.bone !== "none" || state.diffuseMarrow) {
+    const diffuse = document.getElementById("bone-removed") && document.getElementById("bone-removed").checked;
+    if (boneState > 0 || diffuse) {
       const bits = [];
-      if (state.bone !== "none") bits.push(BONE_LABELS[state.bone]);
-      if (state.diffuseMarrow) bits.push("médula ósea difusa");
-      mParts.push(`miM1b(${bits.join(" + ")})`);
+      if (boneState > 0) bits.push(["única", "oligometastásica", "diseminada"][boneState - 1]);
+      if (diffuse) bits.push("médula ósea difusa");
+      mParts.push(`M1b(${bits.join("+")})`);
     }
 
-    const m1cOrgans = Object.keys(ORGAN_LABELS).filter((k) => state.organs[k]);
-    if (m1cOrgans.length || state.otherOrgansInvolved) {
-      const bits = m1cOrgans.map((k) => ORGAN_LABELS[k]);
-      if (state.otherOrgansInvolved) bits.push("otros órganos");
-      mParts.push(`miM1c(${bits.join(",")})`);
+    const otherOrgans = document.getElementById("organs") && document.getElementById("organs").checked;
+    if (groups.metastases1c.size || otherOrgans) {
+      const bits = [...groups.metastases1c];
+      if (otherOrgans) bits.push("otros");
+      mParts.push(`M1c(${bits.join(",")})`);
     }
 
-    if (!mParts.length) mParts.push("miM0");
-    parts.push(...mParts);
+    code += mParts.length ? " " + mParts.join(" ") : " M0";
 
-    // --- PSMA expression ---
-    if (state.scoreMin !== "" || state.scoreMax !== "") {
-      const min = state.scoreMin !== "" ? state.scoreMin : "?";
-      const max = state.scoreMax !== "" ? state.scoreMax : "?";
-      parts.push(`PSMA-expr(min${min},max${max})`);
+    const minRange = document.getElementById("min-range");
+    const maxRange = document.getElementById("max-range");
+    if (minRange && maxRange) {
+      const min = minRange.value, max = maxRange.value;
+      if (min !== "-1" || max !== "4") code += ` PSMA-expr(min${min},max${max})`;
     }
-
-    return parts.join("  ");
+    return code;
   }
 
-  // ---------------------------- Diagram ----------------------------
-  function buildBodySilhouette() {
-    const stroke = "#94a3b8";
-    const fill = "#f8fafc";
-    return `
-      <ellipse cx="300" cy="52" rx="30" ry="34" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <rect x="286" y="82" width="28" height="22" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <path d="M222,106 L378,106 L358,272 L242,272 Z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <path d="M222,106 L188,106 L168,330 L200,330 L222,150 Z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <path d="M378,106 L412,106 L432,330 L400,330 L378,150 Z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <path d="M242,272 L358,272 L370,352 L230,352 Z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <rect x="248" y="352" width="44" height="248" rx="16" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-      <rect x="308" y="352" width="44" height="248" rx="16" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-    `;
-  }
-
-  function activeColorFor(marker) {
-    const isActive = isMarkerActive(marker);
-    return isActive ? GROUP_COLOR[marker.group] : INACTIVE_COLOR;
-  }
-
-  function isMarkerActive(marker) {
-    if (marker.id === "T") return !state.prostateRemoved && !!state.localT && state.localT !== "t0";
-    if (marker.id.startsWith("node_")) return !!state.nodes[marker.id.replace("node_", "")];
-    if (marker.id === "organ_supradia") return !!state.organs.supradia;
-    if (marker.id === "organ_OE") return !!state.organs.OE;
-    if (marker.id.startsWith("organ_")) return !!state.organs[marker.id.replace("organ_", "")];
-    return false;
-  }
-
-  function activeBoneSiteIds() {
-    const n = BONE_COUNT[state.bone] || 0;
-    return BONE_SITES.slice(0, n).map((s) => s.id);
-  }
-
-  function renderDiagram() {
-    const svg = $("promiseDiagram");
-    svg.innerHTML = "";
-
-    const silhouetteWrap = document.createElementNS(SVG_NS, "g");
-    silhouetteWrap.innerHTML = buildBodySilhouette();
-    svg.appendChild(silhouetteWrap);
-
-    // bone overlay
-    const activeBones = new Set(activeBoneSiteIds());
-    const boneGroup = document.createElementNS(SVG_NS, "g");
-    BONE_SITES.forEach((site) => {
-      const active = activeBones.has(site.id);
-      const c = document.createElementNS(SVG_NS, "circle");
-      c.setAttribute("cx", site.cx);
-      c.setAttribute("cy", site.cy);
-      c.setAttribute("r", active ? 7 : 3);
-      c.setAttribute("fill", active ? GROUP_COLOR.m1b : "#e2e8f0");
-      c.setAttribute("stroke", active ? "#7f1d1d" : "none");
-      c.setAttribute("stroke-width", "1.5");
-      boneGroup.appendChild(c);
-    });
-    if (state.diffuseMarrow) {
-      const overlay = document.createElementNS(SVG_NS, "g");
-      overlay.innerHTML = buildBodySilhouette();
-      overlay.setAttribute("opacity", "0.25");
-      overlay.querySelectorAll("path, rect, ellipse").forEach((p) => p.setAttribute("fill", GROUP_COLOR.m1b));
-      svg.appendChild(overlay);
-    }
-    svg.appendChild(boneGroup);
-
-    // structured markers
-    MARKERS.forEach((m) => {
-      const c = document.createElementNS(SVG_NS, "circle");
-      c.setAttribute("cx", m.cx);
-      c.setAttribute("cy", m.cy);
-      c.setAttribute("r", m.r);
-      c.setAttribute("fill", activeColorFor(m));
-      c.setAttribute("stroke", "#334155");
-      c.setAttribute("stroke-width", "1");
-      c.setAttribute("opacity", isMarkerActive(m) ? "0.95" : "0.5");
-      const title = document.createElementNS(SVG_NS, "title");
-      title.textContent = m.label;
-      c.appendChild(title);
-      svg.appendChild(c);
-    });
-
-    // manual pins
-    state.manualPins.forEach((pin, idx) => {
-      const g = document.createElementNS(SVG_NS, "g");
-      g.style.cursor = "pointer";
-      const c = document.createElementNS(SVG_NS, "circle");
-      c.setAttribute("cx", pin.x);
-      c.setAttribute("cy", pin.y);
-      c.setAttribute("r", 9);
-      c.setAttribute("fill", "#0891b2");
-      c.setAttribute("stroke", "#164e63");
-      c.setAttribute("stroke-width", "1.5");
-      const t = document.createElementNS(SVG_NS, "title");
-      t.textContent = pin.text;
-      g.appendChild(c);
-      g.appendChild(t);
-
-      const label = document.createElementNS(SVG_NS, "text");
-      label.setAttribute("x", pin.x + 12);
-      label.setAttribute("y", pin.y + 4);
-      label.setAttribute("font-size", "11");
-      label.setAttribute("fill", "#0e7490");
-      label.textContent = pin.text;
-      g.appendChild(label);
-
-      g.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        if (confirm(`¿Eliminar la marca "${pin.text}"?`)) {
-          state.manualPins.splice(idx, 1);
-          renderDiagram();
-        }
-      });
-      svg.appendChild(g);
-    });
-  }
-
-  function wireDiagramClicks() {
-    const svg = $("promiseDiagram");
-    svg.addEventListener("click", (ev) => {
-      if (ev.target.closest && ev.target.tagName === "text") return;
-      const pt = svg.createSVGPoint();
-      pt.x = ev.clientX;
-      pt.y = ev.clientY;
-      const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
-      const text = prompt("Descripción del hallazgo:");
-      if (text) {
-        state.manualPins.push({ x: loc.x, y: loc.y, text });
-        renderDiagram();
-      }
-    });
-
-    $("btnClearPins").addEventListener("click", () => {
-      if (state.manualPins.length && confirm("¿Borrar todas las marcas manuales?")) {
-        state.manualPins = [];
-        renderDiagram();
-      }
-    });
-
-    $("btnAddPinHint").addEventListener("click", () => {
-      alert("Hacé clic directamente sobre el esquema para agregar una marca en ese punto.");
-    });
-  }
-
-  function exportDiagramAsJpg() {
-    const svg = $("promiseDiagram");
-    const clone = svg.cloneNode(true);
-    clone.setAttribute("xmlns", SVG_NS);
-    const svgString = new XMLSerializer().serializeToString(clone);
-    const svgData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgString);
-
-    const scale = 2;
-    const vb = svg.viewBox.baseVal;
-    const canvas = document.createElement("canvas");
-    canvas.width = vb.width * scale;
-    canvas.height = vb.height * scale;
-    const ctx = canvas.getContext("2d");
-
-    const img = new Image();
-    img.onload = function () {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const jpgUrl = canvas.toDataURL("image/jpeg", 0.95);
-      const a = document.createElement("a");
-      const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
-      a.href = jpgUrl;
-      a.download = `esquema_PROMISE_${subject}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    };
-    img.onerror = function () {
-      alert("No se pudo generar la imagen. Probá nuevamente.");
-    };
-    img.src = svgData;
-  }
-
-  // ---------------------------- Persistence ----------------------------
-  function loadPatients() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function savePatients(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  }
-
-  function wirePersistence() {
-    $("btnGuardar").addEventListener("click", () => {
-      if (!state.subjectId) {
-        alert("Ingresá un ID de sujeto antes de guardar.");
-        return;
-      }
-      const list = loadPatients();
-      const idx = list.findIndex((p) => p.subjectId === state.subjectId && p.peDate === state.peDate);
-      const record = JSON.parse(JSON.stringify(state));
-      if (idx >= 0) list[idx] = record;
-      else list.push(record);
-      savePatients(list);
-      alert("Paciente guardado.");
-    });
-
-    $("btnCargar").addEventListener("click", () => {
-      const list = loadPatients();
-      if (!list.length) {
-        alert("No hay pacientes guardados.");
-        return;
-      }
-      const options = list.map((p, i) => `${i + 1}. ${p.subjectId || "(sin ID)"} — ${p.peDate || "(sin fecha)"}`).join("\n");
-      const choice = prompt(`Elegí un paciente por número:\n${options}`);
-      const i = parseInt(choice, 10) - 1;
-      if (i >= 0 && i < list.length) {
-        state = Object.assign(emptyState(), list[i]);
-        refreshFormFromState();
-        update();
-      }
-    });
-
-    $("btnExportJson").addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
-      a.href = url;
-      a.download = `promise_psma_${subject}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    $("btnImportJson").addEventListener("click", () => $("jsonFileInput").click());
-    $("jsonFileInput").addEventListener("change", (ev) => {
-      const file = ev.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          state = Object.assign(emptyState(), data);
-          refreshFormFromState();
-          update();
-        } catch (e) {
-          alert("El archivo no contiene JSON válido.");
-        }
-      };
-      reader.readAsText(file);
-      ev.target.value = "";
-    });
-
-    $("btnReset").addEventListener("click", () => {
-      if (confirm("¿Restablecer el formulario actual?")) {
-        state = emptyState();
-        refreshFormFromState();
-        update();
-      }
-    });
-
-    $("btnCopyCode").addEventListener("click", () => {
-      const code = $("promiseCode").textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        const btn = $("btnCopyCode");
-        const original = btn.textContent;
-        btn.textContent = "Copiado!";
-        setTimeout(() => (btn.textContent = original), 1200);
-      });
-    });
-
-    $("btnExportJpg").addEventListener("click", exportDiagramAsJpg);
-  }
-
-  // ---------------------------- Update loop ----------------------------
   function update() {
-    $("promiseCode").textContent = buildPromiseCode();
-    renderDiagram();
+    const codeEl = document.getElementById("code");
+    const textToCopy = document.getElementById("textToCopy");
+    const code = buildPromiseCode();
+    if (codeEl) codeEl.textContent = " " + code;
+    if (textToCopy) textToCopy.value = code;
   }
 
+  // ---------------------------------------------------------------
+  // Botones de pie / menú (copiar código, exportar, restablecer)
+  // ---------------------------------------------------------------
+  function wireFooterAndMenu() {
+    const copyBtn = document.getElementById("btnCopyToClipboard");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const code = document.getElementById("code").textContent.trim();
+        navigator.clipboard.writeText(code).then(() => flashToast(ES.toasts.codeCopied));
+      });
+    }
+
+    document.querySelectorAll(".resetPatient, .resetAll, .new-patient, .btn-export-as-csv, .btn-export-as-json, .btn-import-json").forEach((el) => {
+      el.addEventListener("click", (ev) => {
+        if (el.tagName === "A") ev.preventDefault();
+      });
+    });
+
+    document.querySelectorAll(".resetPatient, .new-patient").forEach((el) => el.addEventListener("click", () => resetForm(false)));
+    document.querySelectorAll(".resetAll").forEach((el) => el.addEventListener("click", () => resetForm(true)));
+    document.querySelectorAll(".btn-export-as-json").forEach((el) => el.addEventListener("click", exportJson));
+    document.querySelectorAll(".btn-export-as-csv").forEach((el) => el.addEventListener("click", exportCsv));
+    document.querySelectorAll(".btn-import-json").forEach((el) => el.addEventListener("click", openImportModal));
+
+    const modalClose = document.getElementById("modalClose");
+    if (modalClose) modalClose.addEventListener("click", closeModal);
+    const overlay = document.getElementById("overlay-modal");
+    if (overlay) overlay.addEventListener("click", closeModal);
+
+    const jsonFileInput = document.getElementById("jsonFileInput");
+    const fileName = document.getElementById("fileName");
+    if (jsonFileInput) {
+      jsonFileInput.addEventListener("change", () => {
+        if (jsonFileInput.files[0] && fileName) fileName.textContent = jsonFileInput.files[0].name;
+      });
+    }
+    const loadJsonBtn = document.getElementById("loadJsonBtn");
+    if (loadJsonBtn) loadJsonBtn.addEventListener("click", importJsonFromInput);
+  }
+
+  function openImportModal() {
+    document.getElementById("modalTitle").textContent = ES.advanced.import.modal.title;
+    document.getElementById("modalContent").textContent = ES.advanced.import.modal.content;
+    document.getElementById("import-section").style.display = "";
+    document.getElementById("modal").classList.add("active");
+    document.getElementById("overlay-modal").classList.remove("overlay-hidden");
+    document.getElementById("overlay-modal").classList.add("overlay-visible");
+  }
+  function closeModal() {
+    document.getElementById("modal").classList.remove("active");
+    document.getElementById("overlay-modal").classList.remove("overlay-visible");
+    document.getElementById("overlay-modal").classList.add("overlay-hidden");
+    document.getElementById("import-section").style.display = "none";
+  }
+
+  function flashToast(msg) {
+    let toast = document.getElementById("app-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "app-toast";
+      toast.style.cssText = "position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#18B268;color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;z-index:60;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.display = "block";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => (toast.style.display = "none"), 2000);
+  }
+
+  // ---------------------------------------------------------------
+  // Serialización del estado (para exportar/importar/restablecer)
+  // ---------------------------------------------------------------
+  function currentState() {
+    return {
+      subjectId: val("identifier"), peDate: val("PDEDate"), stageBeforePet: val("StageBPET"),
+      prostateRemoved: checked("prostate-removed"), primaryScore: val("score"),
+      selectedRegions: [...selectedElements],
+      boneState: boneState, diffuseMarrow: checked("bone-removed"), otherOrgansInvolved: checked("organs"),
+      scoreMin: val("min-range"), scoreMax: val("max-range"),
+      code: document.getElementById("code") ? document.getElementById("code").textContent.trim() : ""
+    };
+  }
+  function val(id) { const el = document.getElementById(id); return el ? el.value : ""; }
+  function checked(id) { const el = document.getElementById(id); return el ? el.checked : false; }
+
+  function applyState(state) {
+    if (!state) return;
+    setVal("identifier", state.subjectId); setVal("PDEDate", state.peDate); setVal("StageBPET", state.stageBeforePet);
+    setChecked("prostate-removed", state.prostateRemoved);
+    document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
+    setVal("score", state.primaryScore);
+    selectedElements.clear();
+    (state.selectedRegions || []).forEach((id) => selectedElements.add(id));
+    document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
+    boneState = state.boneState || 0;
+    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
+    if (skeletonEl) skeletonEl.setAttribute("opacity", String(BONE_OPACITY[boneState]));
+    const badge = document.getElementById("bone-state-badge");
+    if (badge) badge.textContent = BONE_LABELS_ES[boneState];
+    setChecked("bone-removed", state.diffuseMarrow);
+    setChecked("organs", state.otherOrgansInvolved);
+    setVal("min-range", state.scoreMin || "-1"); setVal("max-range", state.scoreMax || "4");
+    document.getElementById("min-range").dispatchEvent(new Event("input"));
+    update();
+  }
+  function setVal(id, v) { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; }
+  function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
+
+  function resetForm(all) {
+    selectedElements.clear();
+    document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
+    boneState = 0;
+    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
+    if (skeletonEl) skeletonEl.setAttribute("opacity", "0");
+    const badge = document.getElementById("bone-state-badge");
+    if (badge) badge.textContent = BONE_LABELS_ES[0];
+    setVal("identifier", ""); setVal("PDEDate", ""); setVal("StageBPET", "-1");
+    setChecked("prostate-removed", false);
+    document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
+    setVal("score", "-1");
+    setChecked("bone-removed", false); setChecked("organs", false);
+    setVal("min-range", "-1"); setVal("max-range", "4");
+    document.getElementById("min-range").dispatchEvent(new Event("input"));
+    clearAnnotations();
+    if (all) { try { localStorage.removeItem("promisePsmaPatients"); } catch (e) {} }
+    update();
+    flashToast(all ? ES.toasts.allReseted : ES.toasts.reseted);
+  }
+
+  function exportJson() {
+    const state = currentState();
+    const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    triggerDownload(URL.createObjectURL(blob), `promise_psma_${subject}.json`, true);
+    flashToast(ES.toasts.exportSuccessfully);
+  }
+
+  function exportCsv() {
+    const state = currentState();
+    const headers = ["Fecha", "Identificador del paciente", "Estadio previo al PET", "Código PROMISE"];
+    const row = [state.peDate, state.subjectId, state.stageBeforePet, state.code];
+    const csv = headers.join(";") + "\n" + row.map((v) => `"${(v || "").toString().replace(/"/g, '""')}"`).join(";");
+    const subject = state.subjectId ? state.subjectId.replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
+    const blob = new Blob(["﻿" + csv], { type: "text/csv" });
+    triggerDownload(URL.createObjectURL(blob), `promise_psma_${subject}.csv`, true);
+    flashToast(ES.toasts.exportSuccessfully);
+  }
+
+  function importJsonFromInput() {
+    const input = document.getElementById("jsonFileInput");
+    const file = input.files[0];
+    if (!file) { alert(ES.advanced.import.modal.selectJson); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        applyState(data);
+        closeModal();
+        flashToast(ES.advanced.import.modal.fileUploaded);
+      } catch (e) {
+        alert(ES.advanced.import.modal.invalidJson);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function triggerDownload(url, filename, revoke) {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    if (revoke) setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // ---------------------------------------------------------------
+  // Exportar el esquema PROMISE combinado como JPG
+  // ---------------------------------------------------------------
+  function svgToCanvas(svg, targetW, targetH) {
+    return new Promise((resolve) => {
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", SVG_NS);
+      clone.style.display = "";
+      const svgData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW; canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.onload = () => { ctx.drawImage(img, 0, 0, targetW, targetH); resolve(canvas); };
+      img.onerror = () => resolve(canvas);
+      img.src = svgData;
+    });
+  }
+
+  async function exportScheme() {
+    const removed = document.getElementById("prostate-removed").checked;
+    const tumorSvg = document.getElementById(removed ? "prostate-removed-svg-image" : "prostate-svg-image");
+    const targets = [
+      { svg: tumorSvg, label: "Tumor local" },
+      { svg: document.getElementById("pelvic-svg-image"), label: "Ganglios linfáticos" },
+      { svg: document.getElementById("bone-svg-image"), label: "Metástasis óseas" },
+      { svg: document.getElementById("svg1"), label: "Metástasis a distancia" }
+    ].filter((t) => t.svg);
+
+    const cellW = 520, cellH = 520, cols = 2;
+    const rows = Math.ceil(targets.length / cols);
+    const canvas = document.createElement("canvas");
+    canvas.width = cellW * cols; canvas.height = cellH * rows + 40;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#222222"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Esquema PROMISE — " + (val("identifier") || "paciente"), canvas.width / 2, 28);
+
+    for (let i = 0; i < targets.length; i++) {
+      const col = i % cols, row = Math.floor(i / cols);
+      const sub = await svgToCanvas(targets[i].svg, cellW - 20, cellH - 40);
+      ctx.drawImage(sub, col * cellW + 10, row * cellH + 40 + 10);
+      ctx.fillStyle = "#444444"; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(targets[i].label, col * cellW + cellW / 2, row * cellH + 40 + cellH - 12);
+    }
+
+    canvas.toBlob((blob) => {
+      const subject = val("identifier") ? val("identifier").replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
+      triggerDownload(URL.createObjectURL(blob), `esquema_PROMISE_${subject}.jpg`, true);
+    }, "image/jpeg", 0.95);
+  }
+
+  function wireSchemeToolbar() {
+    const btnClear = document.getElementById("btnClearAnnotations");
+    if (btnClear) btnClear.addEventListener("click", clearAnnotations);
+    const btnExport = document.getElementById("btnExportScheme");
+    if (btnExport) btnExport.addEventListener("click", exportScheme);
+  }
+
+  // ---------------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
-    wireForm();
-    wireDiagramClicks();
-    wirePersistence();
+    applyI18n(document);
+    wireResponsiveReflow();
+    wireClickableRegions();
+    wireDiagramAnnotations();
+    wireProstateRemoved();
+    wirePsmaSlider();
+    wireFooterAndMenu();
+    wireSchemeToolbar();
+    document.getElementById("identifier").addEventListener("input", update);
+    document.getElementById("PDEDate").addEventListener("input", update);
+    document.getElementById("StageBPET").addEventListener("change", update);
+    document.getElementById("bone-removed").addEventListener("change", update);
+    document.getElementById("organs").addEventListener("change", update);
     update();
   });
 })();
