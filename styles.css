@@ -2042,3 +2042,35 @@ video {
     background-repeat: no-repeat;
   }
 }
+
+/* ------------------------------------------------------------- Tabla score PSMA */
+.psma-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+.psma-score-table th, .psma-score-table td {
+  border: 1px solid #d7dee1;
+  padding: 4px 6px;
+  text-align: left;
+}
+.psma-score-table th {
+  background: #CFEAEE;
+  font-weight: 600;
+  font-size: .72rem;
+}
+.psma-score-table td:first-child {
+  text-align: center;
+  font-weight: 700;
+}
+.psma-row-negative td {
+  background: #fafafa;
+}
+.psma-row-positive td {
+  background: #eafaf1;
+}
+.psma-score-footnote {
+  font-size: .68rem;
+  color: #777;
+  margin: 0;
+}
