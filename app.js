@@ -258,9 +258,9 @@
     if (!minDD || !maxDD) return;
 
     function refresh() {
-      let min = parseInt(minDD.value, 10);
-      let max = parseInt(maxDD.value, 10);
-      if (min > max) { max = min; maxDD.value = String(max); }
+      const min = parseInt(minDD.value, 10);
+      const max = parseInt(maxDD.value, 10);
+      if (min >= 0 && max >= 0 && min > max) { maxDD.value = String(min); }
       update();
     }
     minDD.addEventListener("change", refresh);
@@ -344,7 +344,7 @@
     const maxDD = document.getElementById("max-range-dd");
     if (minDD && maxDD) {
       const min = minDD.value, max = maxDD.value;
-      if (min !== "-1" || max !== "4") code += ` / PSMA expression score highest ${max} lowest ${min}`;
+      if (min !== "-1" || max !== "-1") code += ` / PSMA expression score highest ${max} lowest ${min}`;
     }
     return code;
   }
@@ -409,7 +409,7 @@
   function setVal(id, v) { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; }
   function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
 
-  function resetForm(all) {
+  function resetForm() {
     selectedElements.clear();
     document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
     clearLesionMarkers();
@@ -418,12 +418,11 @@
     document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
     setVal("score", "-1");
     setChecked("bone-removed", false); setChecked("organs", false);
-    setVal("min-range-dd", "-1"); setVal("max-range-dd", "4");
+    setVal("min-range-dd", "-1"); setVal("max-range-dd", "-1");
     document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
     clearAnnotations();
-    if (all) { try { localStorage.removeItem("promisePsmaPatients"); } catch (e) {} }
     update();
-    flashToast(all ? ES.toasts.allReseted : ES.toasts.reseted);
+    flashToast(ES.toasts.reseted);
   }
 
   function triggerDownload(url, filename, revoke) {
