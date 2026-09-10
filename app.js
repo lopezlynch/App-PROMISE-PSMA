@@ -13,9 +13,9 @@
     },
     header: {
       inputs: {
-        subject: "ID del sujeto", peDate: "Fecha del PET",
+        subject: "Paciente / ID", peDate: "Fecha del PET",
         stageBeforePet: {
-          label: "Estadio previo al PET",
+          label: "Motivo del estudio",
           options: { initial: "Estadificación inicial", bcr: "BCR (recurrencia bioquímica)", nmcrpc: "nmCRPC (no metastásico convencional)", mhspc: "mHSPC (metastásico convencional)", mcrpc: "mCRPC (metastásico convencional)" }
         }
       }
@@ -96,19 +96,18 @@
   // ---------------------------------------------------------------
   // Estado de las regiones clicables de los diagramas (data-region)
   // ---------------------------------------------------------------
-  const selectedElements = new Set(); // element ids
-  let boneState = 0; // 0 none, 1 uni, 2 oligo, 3 diss
-  const BONE_LABELS_ES = ["Sin compromiso óseo", "Lesión ósea única", "Oligometastásica (n≤3)", "Diseminada (n>3)"];
-  const BONE_OPACITY = [0, 0.55, 0.8, 1];
+  const selectedElements = new Set(); // element ids (secciones 2 y 5: ganglios / metástasis a distancia)
 
   function refreshRegionVisual(el) {
     const active = selectedElements.has(el.id);
     el.setAttribute("opacity", active ? "1" : "0");
   }
 
+  // Secciones 2 y 5: clic alterna la región completa (sin cambios).
   function wireClickableRegions() {
     document.querySelectorAll(".clickable[data-region]").forEach((el) => {
-      if (el.getAttribute("data-region") === "skeleton") return; // manejado aparte (ciclo de estados)
+      const section = el.getAttribute("data-section");
+      if (section === "tumor" || section === "metastases1b") return; // manejadas con marcas puntuales
       el.style.cursor = "pointer";
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -118,23 +117,74 @@
         update();
       });
     });
+  }
 
-    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
-    if (skeletonEl) {
-      skeletonEl.style.cursor = "pointer";
-      const badge = document.createElement("p");
-      badge.id = "bone-state-badge";
-      badge.style.cssText = "font-size:.75rem;color:#555;text-align:center;margin:2px 0;";
-      badge.textContent = BONE_LABELS_ES[0];
-      skeletonEl.closest("section").appendChild(badge);
-      skeletonEl.addEventListener("click", (ev) => {
+  // Secciones 1 (tumor local) y 4 (metástasis óseas): clic puntual = un
+  // círculo pequeño exactamente donde se hizo clic, no toda la región.
+  function svgPointFromEvent(svg, ev) {
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function createLesionMarker(svg, region, section, x, y) {
+    const vb = svg.viewBox.baseVal;
+    const r = vb && vb.width ? vb.width * 0.035 : 4;
+    const marker = document.createElementNS(SVG_NS, "circle");
+    marker.setAttribute("class", "lesion-marker");
+    marker.setAttribute("data-region", region);
+    marker.setAttribute("data-section", section);
+    marker.setAttribute("cx", x); marker.setAttribute("cy", y); marker.setAttribute("r", r);
+    marker.setAttribute("fill", "#e11d1d");
+    marker.setAttribute("stroke", "#7f1d1d");
+    marker.setAttribute("stroke-width", String(Math.max(r * 0.22, 0.3)));
+    marker.style.cursor = "pointer";
+    marker.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      marker.remove();
+      update();
+    });
+    svg.appendChild(marker);
+    return marker;
+  }
+
+  function wirePointMarkerRegions() {
+    document.querySelectorAll(".clickable[data-region]").forEach((el) => {
+      const section = el.getAttribute("data-section");
+      if (section !== "tumor" && section !== "metastases1b") return;
+      el.style.cursor = "pointer";
+      el.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        boneState = (boneState + 1) % 4;
-        skeletonEl.setAttribute("opacity", String(BONE_OPACITY[boneState]));
-        badge.textContent = BONE_LABELS_ES[boneState];
+        const svg = el.closest("svg");
+        if (!svg) return;
+        const loc = svgPointFromEvent(svg, ev);
+        createLesionMarker(svg, el.getAttribute("data-region"), section, loc.x, loc.y);
         update();
       });
-    }
+    });
+  }
+
+  function tumorMarkerRegions() {
+    return [...document.querySelectorAll('.lesion-marker[data-section="tumor"]')].map((m) => m.getAttribute("data-region"));
+  }
+  function boneMarkerCount() {
+    return document.querySelectorAll('.lesion-marker[data-section="metastases1b"]').length;
+  }
+  function clearLesionMarkers() {
+    document.querySelectorAll(".lesion-marker").forEach((el) => el.remove());
+  }
+  function serializeLesionMarkers() {
+    return [...document.querySelectorAll(".lesion-marker")].map((m) => ({
+      svgId: m.closest("svg").id, region: m.getAttribute("data-region"), section: m.getAttribute("data-section"),
+      x: parseFloat(m.getAttribute("cx")), y: parseFloat(m.getAttribute("cy"))
+    }));
+  }
+  function restoreLesionMarkers(list) {
+    clearLesionMarkers();
+    (list || []).forEach((m) => {
+      const svg = document.getElementById(m.svgId);
+      if (svg) createLesionMarker(svg, m.region, m.section, m.x, m.y);
+    });
   }
 
   // ---------------------------------------------------------------
@@ -167,7 +217,7 @@
       const svg = document.getElementById(id);
       if (!svg) return;
       svg.addEventListener("click", (ev) => {
-        if (ev.target.closest(".clickable[data-region]") || ev.target.closest(".user-pin")) return;
+        if (ev.target.closest(".clickable[data-region]") || ev.target.closest(".user-pin") || ev.target.closest(".lesion-marker")) return;
         const pt = svg.createSVGPoint();
         pt.x = ev.clientX; pt.y = ev.clientY;
         const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
@@ -235,10 +285,8 @@
   // ---------------------------------------------------------------
   // Código PROMISE (formato "mi T.. N.. M..", igual al de la app real)
   // ---------------------------------------------------------------
-  const T_ORDER = ["bladder", "LSV", "RSV", "prostateborderpath", "prostateborderpath0", "prostateoutside"];
-
   function activeRegionsBySection() {
-    const groups = { tumor: new Set(), nodes: new Set(), metastases1a: new Set(), metastases1c: new Set() };
+    const groups = { nodes: new Set(), metastases1a: new Set(), metastases1c: new Set() };
     document.querySelectorAll(".clickable[data-region]").forEach((el) => {
       if (!selectedElements.has(el.id)) return;
       const section = el.getAttribute("data-section");
@@ -248,13 +296,13 @@
     return groups;
   }
 
-  function buildTCode(tumor) {
+  function buildTCode(tumorRegions) {
     const prostateRemoved = document.getElementById("prostate-removed").checked;
     if (prostateRemoved) return "T0";
-    if (tumor.has("bladder")) return "T4";
-    if (tumor.has("LSV") || tumor.has("RSV")) return "T3b";
-    if (tumor.has("prostateborderpath")) return "T3a";
-    const foci = ["prostateborderpath0", "prostateoutside"].filter((k) => tumor.has(k)).length;
+    if (tumorRegions.includes("bladder")) return "T4";
+    if (tumorRegions.includes("LSV") || tumorRegions.includes("RSV")) return "T3b";
+    if (tumorRegions.includes("prostateborderpath")) return "T3a";
+    const foci = tumorRegions.filter((r) => r === "prostateborderpath0" || r === "prostateoutside").length;
     if (foci >= 2) return "T2m";
     if (foci === 1) return "T2u";
     return "T0";
@@ -262,7 +310,7 @@
 
   function buildPromiseCode() {
     const groups = activeRegionsBySection();
-    const t = buildTCode(groups.tumor);
+    const t = buildTCode(tumorMarkerRegions());
     let code = "mi " + t;
 
     const scoreSelect = document.getElementById("score");
@@ -276,9 +324,12 @@
     if (groups.metastases1a.size) mParts.push(`M1a(${[...groups.metastases1a].join(",")})`);
 
     const diffuse = document.getElementById("bone-removed") && document.getElementById("bone-removed").checked;
-    if (boneState > 0 || diffuse) {
+    const boneCount = boneMarkerCount();
+    if (boneCount > 0 || diffuse) {
       const bits = [];
-      if (boneState > 0) bits.push(["única", "oligometastásica", "diseminada"][boneState - 1]);
+      if (boneCount === 1) bits.push("única");
+      else if (boneCount >= 2 && boneCount <= 3) bits.push("oligometastásica");
+      else if (boneCount > 3) bits.push("diseminada");
       if (diffuse) bits.push("médula ósea difusa");
       mParts.push(`M1b(${bits.join("+")})`);
     }
@@ -386,7 +437,8 @@
       subjectId: val("identifier"), peDate: val("PDEDate"), stageBeforePet: val("StageBPET"),
       prostateRemoved: checked("prostate-removed"), primaryScore: val("score"),
       selectedRegions: [...selectedElements],
-      boneState: boneState, diffuseMarrow: checked("bone-removed"), otherOrgansInvolved: checked("organs"),
+      lesionMarkers: serializeLesionMarkers(),
+      diffuseMarrow: checked("bone-removed"), otherOrgansInvolved: checked("organs"),
       scoreMin: val("min-range"), scoreMax: val("max-range"),
       code: document.getElementById("code") ? document.getElementById("code").textContent.trim() : ""
     };
@@ -403,11 +455,7 @@
     selectedElements.clear();
     (state.selectedRegions || []).forEach((id) => selectedElements.add(id));
     document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
-    boneState = state.boneState || 0;
-    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
-    if (skeletonEl) skeletonEl.setAttribute("opacity", String(BONE_OPACITY[boneState]));
-    const badge = document.getElementById("bone-state-badge");
-    if (badge) badge.textContent = BONE_LABELS_ES[boneState];
+    restoreLesionMarkers(state.lesionMarkers);
     setChecked("bone-removed", state.diffuseMarrow);
     setChecked("organs", state.otherOrgansInvolved);
     setVal("min-range", state.scoreMin || "-1"); setVal("max-range", state.scoreMax || "4");
@@ -420,11 +468,7 @@
   function resetForm(all) {
     selectedElements.clear();
     document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
-    boneState = 0;
-    const skeletonEl = document.querySelector('.clickable[data-region="skeleton"]');
-    if (skeletonEl) skeletonEl.setAttribute("opacity", "0");
-    const badge = document.getElementById("bone-state-badge");
-    if (badge) badge.textContent = BONE_LABELS_ES[0];
+    clearLesionMarkers();
     setVal("identifier", ""); setVal("PDEDate", ""); setVal("StageBPET", "-1");
     setChecked("prostate-removed", false);
     document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
@@ -546,6 +590,7 @@
     applyI18n(document);
     wireResponsiveReflow();
     wireClickableRegions();
+    wirePointMarkerRegions();
     wireDiagramAnnotations();
     wireProstateRemoved();
     wirePsmaSlider();
