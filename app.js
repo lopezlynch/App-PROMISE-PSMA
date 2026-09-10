@@ -252,33 +252,21 @@
   }
 
   // ---------------------------------------------------------------
-  // Sección 3: slider PSMA (doble rango) + selects para mobile
+  // Sección 3: listas de expresión PSMA (mínima / máxima)
   // ---------------------------------------------------------------
   function wirePsmaSlider() {
-    const minRange = document.getElementById("min-range");
-    const maxRange = document.getElementById("max-range");
     const minDD = document.getElementById("min-range-dd");
     const maxDD = document.getElementById("max-range-dd");
-    const minValue = document.getElementById("min-value");
-    const maxValue = document.getElementById("max-value");
-    if (!minRange || !maxRange) return;
-
-    const LABELS = { "-1": "n/a", "0": "0", "1": "1", "2": "2", "3": "3", "4": "n/a" };
+    if (!minDD || !maxDD) return;
 
     function refresh() {
-      let min = parseInt(minRange.value, 10);
-      let max = parseInt(maxRange.value, 10);
-      if (min > max) { max = min; maxRange.value = String(max); }
-      if (minValue) minValue.textContent = LABELS[minRange.value];
-      if (maxValue) maxValue.textContent = LABELS[maxRange.value];
-      if (minDD) minDD.value = minRange.value;
-      if (maxDD) maxDD.value = maxRange.value;
+      let min = parseInt(minDD.value, 10);
+      let max = parseInt(maxDD.value, 10);
+      if (min > max) { max = min; maxDD.value = String(max); }
       update();
     }
-    minRange.addEventListener("input", refresh);
-    maxRange.addEventListener("input", refresh);
-    if (minDD) minDD.addEventListener("change", () => { minRange.value = minDD.value; refresh(); });
-    if (maxDD) maxDD.addEventListener("change", () => { maxRange.value = maxDD.value; refresh(); });
+    minDD.addEventListener("change", refresh);
+    maxDD.addEventListener("change", refresh);
     refresh();
   }
 
@@ -343,10 +331,10 @@
 
     code += mParts.length ? " " + mParts.join(" ") : " M0";
 
-    const minRange = document.getElementById("min-range");
-    const maxRange = document.getElementById("max-range");
-    if (minRange && maxRange) {
-      const min = minRange.value, max = maxRange.value;
+    const minDD = document.getElementById("min-range-dd");
+    const maxDD = document.getElementById("max-range-dd");
+    if (minDD && maxDD) {
+      const min = minDD.value, max = maxDD.value;
       if (min !== "-1" || max !== "4") code += ` PSMA-expr(min${min},max${max})`;
     }
     return code;
@@ -439,7 +427,7 @@
       selectedRegions: [...selectedElements],
       lesionMarkers: serializeLesionMarkers(),
       diffuseMarrow: checked("bone-removed"), otherOrgansInvolved: checked("organs"),
-      scoreMin: val("min-range"), scoreMax: val("max-range"),
+      scoreMin: val("min-range-dd"), scoreMax: val("max-range-dd"),
       code: document.getElementById("code") ? document.getElementById("code").textContent.trim() : ""
     };
   }
@@ -458,8 +446,8 @@
     restoreLesionMarkers(state.lesionMarkers);
     setChecked("bone-removed", state.diffuseMarrow);
     setChecked("organs", state.otherOrgansInvolved);
-    setVal("min-range", state.scoreMin || "-1"); setVal("max-range", state.scoreMax || "4");
-    document.getElementById("min-range").dispatchEvent(new Event("input"));
+    setVal("min-range-dd", state.scoreMin || "-1"); setVal("max-range-dd", state.scoreMax || "4");
+    document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
     update();
   }
   function setVal(id, v) { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; }
@@ -474,8 +462,8 @@
     document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
     setVal("score", "-1");
     setChecked("bone-removed", false); setChecked("organs", false);
-    setVal("min-range", "-1"); setVal("max-range", "4");
-    document.getElementById("min-range").dispatchEvent(new Event("input"));
+    setVal("min-range-dd", "-1"); setVal("max-range-dd", "4");
+    document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
     clearAnnotations();
     if (all) { try { localStorage.removeItem("promisePsmaPatients"); } catch (e) {} }
     update();
@@ -545,6 +533,12 @@
     });
   }
 
+  function formatDateEs(isoDate) {
+    const parts = (isoDate || "").split("-");
+    if (parts.length !== 3) return isoDate || "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
   function svgAspect(svg) {
     const vb = svg.viewBox && svg.viewBox.baseVal;
     if (vb && vb.width && vb.height) return vb.width / vb.height;
@@ -577,7 +571,8 @@
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#222222"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("Esquema PROMISE — " + (val("identifier") || "paciente"), canvas.width / 2, 30);
+    const titleDate = val("PDEDate") ? " — " + formatDateEs(val("PDEDate")) : "";
+    ctx.fillText("Esquema PROMISE — " + (val("identifier") || "paciente") + titleDate, canvas.width / 2, 30);
 
     for (let i = 0; i < targets.length; i++) {
       const col = i % cols, row = Math.floor(i / cols);
