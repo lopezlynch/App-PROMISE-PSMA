@@ -545,6 +545,19 @@
     });
   }
 
+  function svgAspect(svg) {
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return vb.width / vb.height;
+    return 1;
+  }
+
+  async function svgToCanvasNative(svg, maxDim) {
+    const aspect = svgAspect(svg);
+    const w = aspect >= 1 ? maxDim : Math.round(maxDim * aspect);
+    const h = aspect >= 1 ? Math.round(maxDim / aspect) : maxDim;
+    return svgToCanvas(svg, w, h);
+  }
+
   async function exportScheme() {
     const removed = document.getElementById("prostate-removed").checked;
     const tumorSvg = document.getElementById(removed ? "prostate-removed-svg-image" : "prostate-svg-image");
@@ -555,22 +568,38 @@
       { svg: document.getElementById("svg1"), label: "Metástasis a distancia" }
     ].filter((t) => t.svg);
 
-    const cellW = 520, cellH = 520, cols = 2;
+    const cols = 2, gap = 14, cellW = 480, cellH = 460, labelH = 22;
+    const headerH = 46, codeBarH = 64;
     const rows = Math.ceil(targets.length / cols);
     const canvas = document.createElement("canvas");
-    canvas.width = cellW * cols; canvas.height = cellH * rows + 40;
+    canvas.width = cellW * cols;
+    canvas.height = headerH + cellH * rows + codeBarH;
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#222222"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("Esquema PROMISE — " + (val("identifier") || "paciente"), canvas.width / 2, 28);
+    ctx.fillText("Esquema PROMISE — " + (val("identifier") || "paciente"), canvas.width / 2, 30);
 
     for (let i = 0; i < targets.length; i++) {
       const col = i % cols, row = Math.floor(i / cols);
-      const sub = await svgToCanvas(targets[i].svg, cellW - 20, cellH - 40);
-      ctx.drawImage(sub, col * cellW + 10, row * cellH + 40 + 10);
+      const cellX = col * cellW, cellY = headerH + row * cellH;
+      const boxW = cellW - gap * 2, boxH = cellH - gap * 2 - labelH;
+      const sub = await svgToCanvasNative(targets[i].svg, 900);
+      const scale = Math.min(boxW / sub.width, boxH / sub.height);
+      const dw = sub.width * scale, dh = sub.height * scale;
+      const dx = cellX + gap + (boxW - dw) / 2;
+      const dy = cellY + gap + (boxH - dh) / 2;
+      ctx.drawImage(sub, dx, dy, dw, dh);
       ctx.fillStyle = "#444444"; ctx.font = "14px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(targets[i].label, col * cellW + cellW / 2, row * cellH + 40 + cellH - 12);
+      ctx.fillText(targets[i].label, cellX + cellW / 2, cellY + cellH - 6);
     }
+
+    const codeBarY = headerH + cellH * rows;
+    ctx.fillStyle = "#CFEAEE"; ctx.fillRect(0, codeBarY, canvas.width, codeBarH);
+    ctx.fillStyle = "#222222"; ctx.textAlign = "center";
+    ctx.font = "13px sans-serif";
+    ctx.fillText("miTNM / código PROMISE", canvas.width / 2, codeBarY + 22);
+    ctx.font = "bold 20px monospace";
+    ctx.fillText(buildPromiseCode(), canvas.width / 2, codeBarY + 46);
 
     canvas.toBlob((blob) => {
       const subject = val("identifier") ? val("identifier").replace(/[^a-z0-9_-]+/gi, "_") : "paciente";

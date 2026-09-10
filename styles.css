@@ -221,8 +221,10 @@ aside a:hover svg {
     top: 50%;
     left: 0;
     right: 0;
-    height: 6px;
-    background: #ddd;
+    height: 14px;
+    background: linear-gradient(to right, #ffffff, #1a1a1a);
+    border: 1px solid #333;
+    border-radius: 3px;
     transform: translateY(-50%);
     z-index: 1;
 }
