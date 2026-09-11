@@ -210,7 +210,13 @@
     const rect = gland.getBoundingClientRect();
     const tl = toSvg(rect.left, rect.top);
     const br = toSvg(rect.right, rect.bottom);
-    const x0 = tl.x, y0 = tl.y, x1 = br.x, y1 = br.y;
+    // Margen de seguridad: el contorno es una silueta redondeada (casi en
+    // punta en la base), no un rectángulo, así que si las líneas llegan
+    // justo al borde calculado, mínimas diferencias de precisión al
+    // recortar (clip-path) las dejan asomando por fuera del dibujo.
+    const padX = (br.x - tl.x) * 0.04;
+    const padY = (br.y - tl.y) * 0.04;
+    const x0 = tl.x + padX, y0 = tl.y + padY, x1 = br.x - padX, y1 = br.y - padY;
     const midX = (x0 + x1) / 2;
     const yThird1 = y0 + (y1 - y0) / 3;
     const yThird2 = y0 + ((y1 - y0) * 2) / 3;
