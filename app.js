@@ -232,6 +232,31 @@
     addLine(midX, y0, midX, y1);
     addLine(x0, yThird1, x1, yThird1);
     addLine(x0, yThird2, x1, yThird2);
+
+    // Recorta la grilla a la silueta real de la próstata (el contorno
+    // no es un rectángulo, así que sin esto las líneas se salen del dibujo).
+    // Se usa getScreenCTM() (no getCTM()) porque el SVG original tiene
+    // capas anidadas que hacen que getCTM() no dé la matriz correcta.
+    const glandScreenCtm = gland.getScreenCTM();
+    const glandCtm = glandScreenCtm ? inv.multiply(glandScreenCtm) : null;
+    if (glandCtm) {
+      let defs = svg.querySelector("defs");
+      if (!defs) {
+        defs = document.createElementNS(SVG_NS, "defs");
+        svg.insertBefore(defs, svg.firstChild);
+      }
+      const clipId = "prostateSextantClip";
+      const clipPath = document.createElementNS(SVG_NS, "clipPath");
+      clipPath.id = clipId;
+      const clipShape = gland.cloneNode(false);
+      clipShape.removeAttribute("id");
+      clipShape.removeAttribute("class");
+      clipShape.setAttribute("transform", `matrix(${glandCtm.a},${glandCtm.b},${glandCtm.c},${glandCtm.d},${glandCtm.e},${glandCtm.f})`);
+      clipPath.appendChild(clipShape);
+      defs.appendChild(clipPath);
+      g.setAttribute("clip-path", `url(#${clipId})`);
+    }
+
     svg.appendChild(g);
   }
 
