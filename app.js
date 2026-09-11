@@ -185,11 +185,7 @@
     });
   }
 
-  // ---------------------------------------------------------------
-  // Notas manuales sobre los diagramas (clic fuera de una región)
-  // ---------------------------------------------------------------
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const DIAGRAM_IDS = ["prostate-svg-image", "prostate-removed-svg-image", "pelvic-svg-image", "bone-svg-image", "svg1"];
 
   // Grilla de 6 sectores (sextantes) sobre el dibujo de la próstata,
   // como en la figura de la publicación original de PROMISE. Es solo
@@ -264,44 +260,6 @@
     }
 
     svg.appendChild(g);
-  }
-
-  function addPin(svg, x, y, text) {
-    const g = document.createElementNS(SVG_NS, "g");
-    g.setAttribute("class", "user-pin");
-    g.style.cursor = "pointer";
-    const vb = svg.viewBox.baseVal;
-    const r = vb && vb.width ? vb.width * 0.012 : 6;
-    const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", r);
-    c.setAttribute("fill", "#0891b2"); c.setAttribute("stroke", "#164e63"); c.setAttribute("stroke-width", String(r * 0.2));
-    const t = document.createElementNS(SVG_NS, "title");
-    t.textContent = text;
-    g.appendChild(c); g.appendChild(t);
-    g.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      if (confirm(`¿Eliminar la nota "${text}"?`)) g.remove();
-    });
-    svg.appendChild(g);
-  }
-
-  function wireDiagramAnnotations() {
-    DIAGRAM_IDS.forEach((id) => {
-      const svg = document.getElementById(id);
-      if (!svg) return;
-      svg.addEventListener("click", (ev) => {
-        if (ev.target.closest(".clickable[data-region]") || ev.target.closest(".user-pin") || ev.target.closest(".lesion-marker")) return;
-        const pt = svg.createSVGPoint();
-        pt.x = ev.clientX; pt.y = ev.clientY;
-        const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
-        const text = prompt("Nota para este punto del esquema:");
-        if (text) addPin(svg, loc.x, loc.y, text);
-      });
-    });
-  }
-
-  function clearAnnotations() {
-    document.querySelectorAll(".user-pin").forEach((el) => el.remove());
   }
 
   // ---------------------------------------------------------------
@@ -495,7 +453,6 @@
     setChecked("bone-removed", false); setChecked("organs", false);
     setVal("min-range-dd", "-1"); setVal("max-range-dd", "-1");
     document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
-    clearAnnotations();
     update();
     flashToast(ES.toasts.reseted);
   }
@@ -605,8 +562,6 @@
   }
 
   function wireSchemeToolbar() {
-    const btnClear = document.getElementById("btnClearAnnotations");
-    if (btnClear) btnClear.addEventListener("click", clearAnnotations);
     const btnExport = document.getElementById("btnExportScheme");
     if (btnExport) btnExport.addEventListener("click", exportScheme);
   }
@@ -617,7 +572,6 @@
     wireResponsiveReflow();
     wireClickableRegions();
     wirePointMarkerRegions();
-    wireDiagramAnnotations();
     wireProstateRemoved();
     addProstateSextantGrid();
     wirePsmaSlider();
