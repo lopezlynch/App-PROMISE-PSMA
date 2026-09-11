@@ -284,7 +284,7 @@
 
   function buildTCode(tumorRegions) {
     const prostateRemoved = document.getElementById("prostate-removed").checked;
-    if (prostateRemoved) return "T0";
+    if (prostateRemoved) return tumorRegions.length > 0 ? "Tr" : "T0";
     if (tumorRegions.includes("bladder")) return "T4";
     if (tumorRegions.includes("LSV") || tumorRegions.includes("RSV")) return "T3b";
     if (tumorRegions.includes("prostateborderpath")) return "T3a";
@@ -440,6 +440,15 @@
       const clone = svg.cloneNode(true);
       clone.setAttribute("xmlns", SVG_NS);
       clone.style.display = "";
+      // Algunos SVG originales traen width/height (px) que no coinciden con
+      // su viewBox (artefacto de exportación); si se dejan, el navegador
+      // rasteriza con esa proporción incorrecta y la imagen queda
+      // deformada. Forzamos que el tamaño intrínseco sea el del viewBox.
+      const vbForClone = svg.viewBox && svg.viewBox.baseVal;
+      if (vbForClone && vbForClone.width && vbForClone.height) {
+        clone.setAttribute("width", vbForClone.width);
+        clone.setAttribute("height", vbForClone.height);
+      }
       const svgData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(clone));
       const canvas = document.createElement("canvas");
       canvas.width = targetW; canvas.height = targetH;
