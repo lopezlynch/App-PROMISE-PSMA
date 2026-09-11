@@ -191,6 +191,50 @@
   const SVG_NS = "http://www.w3.org/2000/svg";
   const DIAGRAM_IDS = ["prostate-svg-image", "prostate-removed-svg-image", "pelvic-svg-image", "bone-svg-image", "svg1"];
 
+  // Grilla de 6 sectores (sextantes) sobre el dibujo de la próstata,
+  // como en la figura de la publicación original de PROMISE. Es solo
+  // una referencia visual: no cambia la lógica del código T (PROMISE
+  // V2 dejó de reportar por sextante).
+  function addProstateSextantGrid() {
+    const svg = document.getElementById("prostate-svg-image");
+    const gland = document.getElementById("prostate-fig");
+    if (!svg || !gland) return;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const inv = ctm.inverse();
+    function toSvg(x, y) {
+      const p = svg.createSVGPoint();
+      p.x = x; p.y = y;
+      return p.matrixTransform(inv);
+    }
+    const rect = gland.getBoundingClientRect();
+    const tl = toSvg(rect.left, rect.top);
+    const br = toSvg(rect.right, rect.bottom);
+    const x0 = tl.x, y0 = tl.y, x1 = br.x, y1 = br.y;
+    const midX = (x0 + x1) / 2;
+    const yThird1 = y0 + (y1 - y0) / 3;
+    const yThird2 = y0 + ((y1 - y0) * 2) / 3;
+
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "sextant-grid");
+    g.style.pointerEvents = "none";
+
+    function addLine(lx1, ly1, lx2, ly2) {
+      const l = document.createElementNS(SVG_NS, "line");
+      l.setAttribute("x1", lx1); l.setAttribute("y1", ly1);
+      l.setAttribute("x2", lx2); l.setAttribute("y2", ly2);
+      l.setAttribute("stroke", "#5a3a2e");
+      l.setAttribute("stroke-width", "0.8");
+      l.setAttribute("stroke-dasharray", "2,1.5");
+      l.setAttribute("opacity", "0.75");
+      g.appendChild(l);
+    }
+    addLine(midX, y0, midX, y1);
+    addLine(x0, yThird1, x1, yThird1);
+    addLine(x0, yThird2, x1, yThird2);
+    svg.appendChild(g);
+  }
+
   function addPin(svg, x, y, text) {
     const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("class", "user-pin");
@@ -544,6 +588,7 @@
     wirePointMarkerRegions();
     wireDiagramAnnotations();
     wireProstateRemoved();
+    addProstateSextantGrid();
     wirePsmaSlider();
     wireFooterAndMenu();
     wireSchemeToolbar();
