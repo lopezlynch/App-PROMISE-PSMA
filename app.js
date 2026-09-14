@@ -522,11 +522,11 @@
     ].filter((t) => t.svg);
 
     const cols = 2, gap = 14, cellW = 480, cellH = 460, labelH = 22;
-    const headerH = 46, codeBarH = 64;
+    const headerH = 46, codeBarH = 64, citationH = 26;
     const rows = Math.ceil(targets.length / cols);
     const canvas = document.createElement("canvas");
     canvas.width = cellW * cols;
-    canvas.height = headerH + cellH * rows + codeBarH;
+    canvas.height = headerH + cellH * rows + codeBarH + citationH;
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#222222"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
@@ -554,6 +554,15 @@
     ctx.fillText("miTNM / código PROMISE", canvas.width / 2, codeBarY + 22);
     ctx.font = "bold 20px monospace";
     ctx.fillText(buildPromiseCode(), canvas.width / 2, codeBarY + 46);
+
+    const citationY = codeBarY + codeBarH;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, citationY, canvas.width, citationH);
+    ctx.fillStyle = "#888888"; ctx.font = "9px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(
+      "Adaptado de: Seifert R, et al. PROMISE V2 — Prostate Cancer Molecular Imaging Standardized Evaluation. Eur Urol. 2023;83(5):405-412. / https://e.promise-pet.com/",
+      canvas.width / 2,
+      citationY + citationH / 2 + 3
+    );
 
     canvas.toBlob((blob) => {
       const subject = val("identifier") ? val("identifier").replace(/[^a-z0-9_-]+/gi, "_") : "paciente";
