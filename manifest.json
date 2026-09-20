@@ -1,0 +1,17 @@
+{
+  "name": "PROMISE-PSMA",
+  "short_name": "PROMISE-PSMA",
+  "description": "Estadificación PROMISE-PSMA para PET/CT con PSMA",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F1F6",
+  "theme_color": "#9E1F63",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
