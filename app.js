@@ -451,7 +451,11 @@
 
   function resetForm() {
     selectedElements.clear();
-    document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
+    document.querySelectorAll(".clickable[data-region]").forEach((el) => {
+      const section = el.getAttribute("data-section");
+      if (section === "tumor" || section === "metastases1b") return; // ilustración base, no se ocultan
+      refreshRegionVisual(el);
+    });
     clearLesionMarkers();
     setVal("identifier", ""); setVal("PDEDate", ""); setVal("StageBPET", "-1");
     setChecked("prostate-removed", false);
