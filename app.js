@@ -391,7 +391,10 @@
 
     const diffuse = document.getElementById("bone-removed") && document.getElementById("bone-removed").checked;
     const skeletonFill = document.getElementById("skeleton");
-    if (skeletonFill) skeletonFill.setAttribute("opacity", diffuse ? "0.75" : "0");
+    if (skeletonFill) {
+      skeletonFill.setAttribute("opacity", diffuse ? "0.3" : "0");
+      skeletonFill.style.strokeOpacity = diffuse ? "1" : "";
+    }
   }
 
   // ---------------------------------------------------------------
