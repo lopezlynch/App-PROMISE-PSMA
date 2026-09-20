@@ -388,6 +388,10 @@
     const code = buildPromiseCode();
     if (codeEl) codeEl.textContent = " " + code;
     if (textToCopy) textToCopy.value = code;
+
+    const diffuse = document.getElementById("bone-removed") && document.getElementById("bone-removed").checked;
+    const boneSvg = document.getElementById("bone-svg-image");
+    if (boneSvg) boneSvg.classList.toggle("diffuse-marrow", diffuse);
   }
 
   // ---------------------------------------------------------------
