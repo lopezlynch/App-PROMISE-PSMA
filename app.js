@@ -393,12 +393,36 @@
   // ---------------------------------------------------------------
   // Botones de pie / menú (copiar código, exportar, restablecer)
   // ---------------------------------------------------------------
+  // Copia texto usando la Clipboard API cuando está disponible (contexto
+  // seguro), con respaldo a execCommand para iframes / http sin permisos.
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+    }
+    return legacyCopy(text);
+  }
+
+  function legacyCopy(text) {
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      ok ? resolve() : reject(new Error("copy failed"));
+    });
+  }
+
   function wireFooterAndMenu() {
     const copyBtn = document.getElementById("btnCopyToClipboard");
     if (copyBtn) {
       copyBtn.addEventListener("click", () => {
         const code = document.getElementById("code").textContent.trim();
-        navigator.clipboard.writeText(code).then(() => flashToast(ES.toasts.codeCopied));
+        copyText(code).then(() => flashToast(ES.toasts.codeCopied));
       });
     }
 
@@ -442,19 +466,24 @@
   function setVal(id, v) { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; }
   function setChecked(id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; }
 
-  function resetForm() {
+  function resetForm(all) {
     selectedElements.clear();
     document.querySelectorAll(".clickable[data-region]").forEach(refreshRegionVisual);
     clearLesionMarkers();
-    setVal("identifier", ""); setVal("PDEDate", ""); setVal("StageBPET", "-1");
     setChecked("prostate-removed", false);
     document.getElementById("prostate-removed").dispatchEvent(new Event("change"));
     setVal("score", "-1");
     setChecked("bone-removed", false); setChecked("organs", false);
     setVal("min-range-dd", "-1"); setVal("max-range-dd", "-1");
     document.getElementById("min-range-dd").dispatchEvent(new Event("change"));
+    // "Restablecer todo" además limpia la identificación del paciente,
+    // la fecha del PET y el motivo del estudio; "Restablecer" (paciente)
+    // conserva esos datos de cabecera.
+    if (all) {
+      setVal("identifier", ""); setVal("PDEDate", ""); setVal("StageBPET", "-1");
+    }
     update();
-    flashToast(ES.toasts.reseted);
+    flashToast(all ? ES.toasts.allReseted : ES.toasts.reseted);
   }
 
   function triggerDownload(url, filename, revoke) {
