@@ -2074,7 +2074,3 @@ video {
   color: #777;
   margin: 0;
 }
-
-#bone-svg-image.diffuse-marrow {
-  filter: sepia(1) saturate(8) hue-rotate(-52deg) brightness(0.9) contrast(1.15);
-}
